@@ -1,26 +1,80 @@
 {
   "project_info": {
-    "project_number": "1006948485343",
-    "project_id": "isdaaquagentechdb",
-    "storage_bucket": "isdaaquagentechdb.firebasestorage.app"
+    "project_number": "224211865301",
+    "firebase_url": "https://rescue-moto-default-rtdb.asia-southeast1.firebasedatabase.app",
+    "project_id": "rescue-moto",
+    "storage_bucket": "rescue-moto.appspot.com"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:1006948485343:android:7b064e4773f7ed9159416a",
+        "mobilesdk_app_id": "1:224211865301:android:fb57abd03b26bdca365c5c",
         "android_client_info": {
           "package_name": "com.example.isda_aqua_gentech"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "224211865301-v0rpcndpmqn3tkoln95ob2l9pi1n4ngp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
-          "current_key": "AIzaSyBJKAKAr2obkmG95Ew0IPJsgaPlO1Myj2Q"
+          "current_key": "AIzaSyBi3AV9SEwbLmuLZNQgG1sXH8az9NTSq-I"
         }
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "224211865301-v0rpcndpmqn3tkoln95ob2l9pi1n4ngp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "224211865301-a1850ef98s9msgo8r7mdiclt3gihbqhh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.rescueMoto"
+              }
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:224211865301:android:ad239a412a4b06f5365c5c",
+        "android_client_info": {
+          "package_name": "com.example.rescue_moto"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "224211865301-v0rpcndpmqn3tkoln95ob2l9pi1n4ngp.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBi3AV9SEwbLmuLZNQgG1sXH8az9NTSq-I"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "224211865301-v0rpcndpmqn3tkoln95ob2l9pi1n4ngp.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "224211865301-a1850ef98s9msgo8r7mdiclt3gihbqhh.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.example.rescueMoto"
+              }
+            }
+          ]
         }
       }
     }

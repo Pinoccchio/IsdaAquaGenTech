@@ -47,30 +47,32 @@ class DefaultFirebaseOptions {
   }
 
   static const FirebaseOptions web = FirebaseOptions(
-    apiKey: 'AIzaSyDwYh5MHDKLKMlphb4lo-qhHkh_Ivxn248',
-    appId: '1:1006948485343:web:d848181f832a77af59416a',
-    messagingSenderId: '1006948485343',
-    projectId: 'isdaaquagentechdb',
-    authDomain: 'isdaaquagentechdb.firebaseapp.com',
-    storageBucket: 'isdaaquagentechdb.firebasestorage.app',
-    measurementId: 'G-E6W2MF336Z',
+    apiKey: 'AIzaSyCSY0gNdAQrFpLzXTj8VPlZEtLAMhhaeQA',
+    appId: '1:224211865301:web:c68900e506730b15365c5c',
+    messagingSenderId: '224211865301',
+    projectId: 'rescue-moto',
+    authDomain: 'rescue-moto.firebaseapp.com',
+    databaseURL: 'https://rescue-moto-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'rescue-moto.appspot.com',
   );
 
   static const FirebaseOptions android = FirebaseOptions(
-    apiKey: 'AIzaSyBJKAKAr2obkmG95Ew0IPJsgaPlO1Myj2Q',
-    appId: '1:1006948485343:android:7b064e4773f7ed9159416a',
-    messagingSenderId: '1006948485343',
-    projectId: 'isdaaquagentechdb',
-    storageBucket: 'isdaaquagentechdb.firebasestorage.app',
+    apiKey: 'AIzaSyBi3AV9SEwbLmuLZNQgG1sXH8az9NTSq-I',
+    appId: '1:224211865301:android:fb57abd03b26bdca365c5c',
+    messagingSenderId: '224211865301',
+    projectId: 'rescue-moto',
+    databaseURL: 'https://rescue-moto-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'rescue-moto.appspot.com',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(
-    apiKey: 'AIzaSyDwYh5MHDKLKMlphb4lo-qhHkh_Ivxn248',
-    appId: '1:1006948485343:web:02382c95f92216e259416a',
-    messagingSenderId: '1006948485343',
-    projectId: 'isdaaquagentechdb',
-    authDomain: 'isdaaquagentechdb.firebaseapp.com',
-    storageBucket: 'isdaaquagentechdb.firebasestorage.app',
-    measurementId: 'G-5RHC2G1XQE',
+    apiKey: 'AIzaSyASeh8IGjmVmbZt2eUj37V58Ahe6hDJ4ow',
+    appId: '1:224211865301:web:0378dbe4a93cd1a3365c5c',
+    messagingSenderId: '224211865301',
+    projectId: 'rescue-moto',
+    authDomain: 'rescue-moto.firebaseapp.com',
+    databaseURL: 'https://rescue-moto-default-rtdb.asia-southeast1.firebasedatabase.app',
+    storageBucket: 'rescue-moto.appspot.com',
   );
+
 }

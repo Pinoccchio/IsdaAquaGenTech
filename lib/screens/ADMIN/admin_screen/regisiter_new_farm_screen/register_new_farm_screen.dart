@@ -1,5 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart';
 import 'package:isda_aqua_gentech/screens/ADMIN/admin_screen/regisiter_new_farm_screen/src/constant/philippine_regions.dart';
 import 'package:isda_aqua_gentech/screens/ADMIN/admin_screen/regisiter_new_farm_screen/src/model/municipality.dart';
 import 'package:isda_aqua_gentech/screens/ADMIN/admin_screen/regisiter_new_farm_screen/src/model/province.dart';
@@ -25,6 +30,9 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
   final _addressController = TextEditingController();
   final _contactNumberController = TextEditingController();
   final _feedTypesController = TextEditingController();
+  final _usernameController = TextEditingController();
+  final _passwordController = TextEditingController();
+  final _confirmPasswordController = TextEditingController();
 
   // Location data
   Region? _selectedRegion;
@@ -35,6 +43,65 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
 
   // Sample data for number of cages
   final List<String> _numberOfCagesOptions = List.generate(20, (index) => (index + 1).toString());
+
+  bool _isPasswordVisible = false;
+  bool _isConfirmPasswordVisible = false;
+  bool _isLoading = false;
+
+  // Initialize FlutterLocalNotificationsPlugin
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String farmName) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'farm_registration_channel',
+      'Farm Registration Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Farm Registered: $farmName',
+      'Your farm has been successfully registered.',
+      platformChannelSpecifics,
+    );
+  }
+
+  Future<void> _addAdminNotification(String farmName) async {
+    try {
+      User? currentUser = FirebaseAuth.instance.currentUser;
+      if (currentUser != null) {
+        await FirebaseFirestore.instance
+            .collection('USERS')
+            .doc(currentUser.uid)
+            .collection('admin_notifications')
+            .add({
+          'message': 'New farm registered: $farmName',
+          'timestamp': FieldValue.serverTimestamp(),
+          'read': false,
+        });
+      }
+    } catch (e) {
+      print('Error adding admin notification: $e');
+    }
+  }
 
   Future<void> _pickImage() async {
     final ImagePicker picker = ImagePicker();
@@ -72,6 +139,66 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     _addressController.text = address.trim();
   }
 
+  Future<void> _submitForm() async {
+    if (_formKey.currentState!.validate()) {
+      if (_pondImage == null) {
+        _showErrorDialog('Please select a pond image');
+        return;
+      }
+
+      setState(() {
+        _isLoading = true;
+      });
+
+      try {
+        // Upload image to Firebase Storage
+        final storageRef = FirebaseStorage.instance.ref().child('pond_images/${DateTime.now().toIso8601String()}.jpg');
+        await storageRef.putFile(_pondImage!);
+        final imageUrl = await storageRef.getDownloadURL();
+
+        // Save data to Firestore
+        DocumentReference farmRef = await FirebaseFirestore.instance.collection('farms').add({
+          'firstName': _firstNameController.text,
+          'lastName': _lastNameController.text,
+          'farmName': _farmNameController.text,
+          'numberOfCages': _selectedNumberOfCages,
+          'address': _addressController.text,
+          'region': _selectedRegion?.regionName,
+          'province': _selectedProvince?.name,
+          'municipality': _selectedMunicipality?.name,
+          'barangay': _selectedBarangay,
+          'contactNumber': _contactNumberController.text,
+          'feedTypes': _feedTypesController.text,
+          'username': _usernameController.text,
+          'password': _passwordController.text, // Adding password to Firestore
+          'pondImageUrl': imageUrl,
+          'createdAt': DateFormat('h:mm a').format(DateTime.now()),
+          'status': 'offline',
+        });
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Farm registered successfully')),
+        );
+
+        // Show local notification (Android only)
+        await _showNotification(_farmNameController.text);
+
+        // Add admin notification to Firestore
+        await _addAdminNotification(_farmNameController.text);
+
+        Navigator.of(context).pop(); // Return to previous screen after successful registration
+
+      } catch (e) {
+        _showErrorDialog('Error registering farm: $e');
+      } finally {
+        setState(() {
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
   @override
   void dispose() {
     _firstNameController.dispose();
@@ -80,6 +207,9 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     _addressController.dispose();
     _contactNumberController.dispose();
     _feedTypesController.dispose();
+    _usernameController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
     super.dispose();
   }
 
@@ -152,6 +282,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                       child: _buildInputField(
                         controller: _firstNameController,
                         label: 'FIRST NAME',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your first name';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                     const SizedBox(width: 16),
@@ -159,6 +295,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                       child: _buildInputField(
                         controller: _lastNameController,
                         label: 'LAST NAME',
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Please enter your last name';
+                          }
+                          return null;
+                        },
                       ),
                     ),
                   ],
@@ -167,6 +309,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                 _buildInputField(
                   controller: _farmNameController,
                   label: 'FARM NAME',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter the farm name';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildDropdown(
@@ -177,6 +325,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                     setState(() {
                       _selectedNumberOfCages = value;
                     });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select the number of cages';
+                    }
+                    return null;
                   },
                 ),
                 const SizedBox(height: 16),
@@ -234,25 +388,95 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                   controller: _addressController,
                   label: 'ADDRESS',
                   readOnly: true,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please select your complete address';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildInputField(
                   controller: _contactNumberController,
                   label: 'CONTACT NUMBER',
                   keyboardType: TextInputType.phone,
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter your contact number';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
                 _buildInputField(
                   controller: _feedTypesController,
                   label: 'FEED TYPES',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter the feed types';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildInputField(
+                  controller: _usernameController,
+                  label: 'USERNAME',
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a username';
+                    }
+                    if (!value.contains('fisher')) {
+                      return 'Username must contain "fisher"';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildInputField(
+                  controller: _passwordController,
+                  label: 'PASSWORD',
+                  obscureText: !_isPasswordVisible,
+                  isPasswordField: true,
+                  onToggleVisibility: () {
+                    setState(() {
+                      _isPasswordVisible = !_isPasswordVisible;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please enter a password';
+                    }
+                    if (value.length < 6) {
+                      return 'Password must be at least 6 characters long';
+                    }
+                    return null;
+                  },
+                ),
+                const SizedBox(height: 16),
+                _buildInputField(
+                  controller: _confirmPasswordController,
+                  label: 'RE-TYPE PASSWORD',
+                  obscureText: !_isConfirmPasswordVisible,
+                  isPasswordField: true,
+                  onToggleVisibility: () {
+                    setState(() {
+                      _isConfirmPasswordVisible = !_isConfirmPasswordVisible;
+                    });
+                  },
+                  validator: (value) {
+                    if (value == null || value.isEmpty) {
+                      return 'Please re-type your password';
+                    }
+                    if (value != _passwordController.text) {
+                      return 'Passwords do not match';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 24),
                 ElevatedButton(
-                  onPressed: () {
-                    if (_formKey.currentState!.validate()) {
-                      // Handle form submission
-                    }
-                  },
+                  onPressed: _isLoading ? null : _submitForm,
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFF40C4FF),
                     foregroundColor: Colors.white,
@@ -261,8 +485,10 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                       borderRadius: BorderRadius.circular(25),
                     ),
                   ),
-                  child: const Text(
-                    'NEXT',
+                  child: _isLoading
+                      ? const CircularProgressIndicator(color: Colors.white)
+                      : const Text(
+                    'CREATE',
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -283,6 +509,10 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     required String label,
     TextInputType? keyboardType,
     bool readOnly = false,
+    bool obscureText = false,
+    String? Function(String?)? validator,
+    VoidCallback? onToggleVisibility,
+    bool isPasswordField = false,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -292,10 +522,11 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           width: 2,
         ),
       ),
-      child: TextField(
+      child: TextFormField(
         controller: controller,
         keyboardType: keyboardType,
         readOnly: readOnly,
+        obscureText: obscureText,
         decoration: InputDecoration(
           hintText: label,
           hintStyle: const TextStyle(
@@ -309,12 +540,22 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
             horizontal: 20,
             vertical: 15,
           ),
+          suffixIcon: isPasswordField
+              ? IconButton(
+            icon: Icon(
+              obscureText ? Icons.visibility_off : Icons.visibility,
+              color: const Color(0xFF40C4FF),
+            ),
+            onPressed: onToggleVisibility,
+          )
+              : null,
         ),
         style: const TextStyle(
           color: Colors.black,
           fontSize: 14,
           fontWeight: FontWeight.normal,
         ),
+        validator: validator,
       ),
     );
   }
@@ -324,6 +565,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     required List<String> items,
     required String hint,
     required void Function(String?)? onChanged,
+    String? Function(String?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -333,43 +575,43 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           width: 2,
         ),
       ),
-      child: DropdownButtonHideUnderline(
-        child: ButtonTheme(
-          alignedDropdown: true,
-          child: DropdownButton<String>(
-            value: value,
-            hint: Text(
-              hint,
-              style: const TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.2,
-              ),
-            ),
-            items: items.map((String item) {
-              return DropdownMenuItem(
-                value: item,
-                child: Text(
-                  item,
-                  style: const TextStyle(
-                    color: Colors.black,
-                    fontSize: 14,
-                    fontWeight: FontWeight.normal,
-                  ),
-                  overflow: TextOverflow.ellipsis,
-                ),
-              );
-            }).toList(),
-            onChanged: onChanged,
-            icon: const Icon(
-              Icons.arrow_drop_down,
-              color: Color(0xFF40C4FF),
-            ),
-            isExpanded: true,
-            dropdownColor: Colors.white,
+      child: DropdownButtonFormField<String>(
+        value: value,
+        hint: Text(
+          hint,
+          style: const TextStyle(
+            color: Colors.grey,
+            fontSize: 14,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 1.2,
           ),
         ),
+        items: items.map((String item) {
+          return DropdownMenuItem(
+            value: item,
+            child: Text(
+              item,
+              style: const TextStyle(
+                color: Colors.black,
+                fontSize: 14,
+                fontWeight: FontWeight.normal,
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          );
+        }).toList(),
+        onChanged: onChanged,
+        icon: const Icon(
+          Icons.arrow_drop_down,
+          color: Color(0xFF40C4FF),
+        ),
+        isExpanded: true,
+        dropdownColor: Colors.white,
+        decoration: const InputDecoration(
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.symmetric(horizontal: 20, vertical: 15),
+        ),
+        validator: validator,
       ),
     );
   }
