@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1006948485343",
+    "project_id": "isdaaquagentechdb",
+    "storage_bucket": "isdaaquagentechdb.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1006948485343:android:7b064e4773f7ed9159416a",
+        "android_client_info": {
+          "package_name": "com.example.isda_aqua_gentech"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBJKAKAr2obkmG95Ew0IPJsgaPlO1Myj2Q"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
