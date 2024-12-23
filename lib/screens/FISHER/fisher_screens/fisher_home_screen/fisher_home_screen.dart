@@ -345,4 +345,3 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     );
   }
 }
-

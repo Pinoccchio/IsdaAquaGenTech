@@ -39,10 +39,14 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
   Province? _selectedProvince;
   Municipality? _selectedMunicipality;
   String? _selectedBarangay;
-  String? _selectedNumberOfCages;
+  int? _selectedNumberOfCages;
+
+  // Fish types
+  final List<String> _fishTypes = ['TILAPIA', 'SHRIMPS'];
+  List<String?> _selectedFishTypes = [];
 
   // Sample data for number of cages
-  final List<String> _numberOfCagesOptions = List.generate(20, (index) => (index + 1).toString());
+  final List<int> _numberOfCagesOptions = List.generate(20, (index) => index + 1);
 
   bool _isPasswordVisible = false;
   bool _isConfirmPasswordVisible = false;
@@ -156,12 +160,22 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
         await storageRef.putFile(_pondImage!);
         final imageUrl = await storageRef.getDownloadURL();
 
+        // Prepare fish types data
+        List<Map<String, dynamic>> fishTypesData = [];
+        for (int i = 0; i < _selectedFishTypes.length; i++) {
+          fishTypesData.add({
+            'cageNumber': i + 1,
+            'fishType': _selectedFishTypes[i],
+          });
+        }
+
         // Save data to Firestore
         DocumentReference farmRef = await FirebaseFirestore.instance.collection('farms').add({
           'firstName': _firstNameController.text,
           'lastName': _lastNameController.text,
           'farmName': _farmNameController.text,
           'numberOfCages': _selectedNumberOfCages,
+          'fishTypes': fishTypesData,
           'address': _addressController.text,
           'region': _selectedRegion?.regionName,
           'province': _selectedProvince?.name,
@@ -170,7 +184,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           'contactNumber': _contactNumberController.text,
           'feedTypes': _feedTypesController.text,
           'username': _usernameController.text,
-          'password': _passwordController.text, // Adding password to Firestore
+          'password': _passwordController.text,
           'pondImageUrl': imageUrl,
           'createdAt': DateFormat('h:mm a').format(DateTime.now()),
           'status': 'offline',
@@ -324,16 +338,41 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                   onChanged: (value) {
                     setState(() {
                       _selectedNumberOfCages = value;
+                      _selectedFishTypes = List.filled(value ?? 0, null);
                     });
                   },
                   validator: (value) {
-                    if (value == null || value.isEmpty) {
+                    if (value == null) {
                       return 'Please select the number of cages';
                     }
                     return null;
                   },
                 ),
                 const SizedBox(height: 16),
+                if (_selectedNumberOfCages != null)
+                  ...List.generate(_selectedNumberOfCages!, (index) {
+                    return Column(
+                      children: [
+                        _buildDropdown(
+                          value: _selectedFishTypes[index],
+                          items: _fishTypes,
+                          hint: 'FISH TYPE FOR CAGE ${index + 1}',
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedFishTypes[index] = value;
+                            });
+                          },
+                          validator: (value) {
+                            if (value == null || value.isEmpty) {
+                              return 'Please select a fish type for cage ${index + 1}';
+                            }
+                            return null;
+                          },
+                        ),
+                        const SizedBox(height: 16),
+                      ],
+                    );
+                  }),
                 PhilippineRegionDropdownView(
                   regions: philippineRegions,
                   value: _selectedRegion,
@@ -560,12 +599,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     );
   }
 
-  Widget _buildDropdown({
-    required String? value,
-    required List<String> items,
+  Widget _buildDropdown<T>({
+    required T? value,
+    required List<T> items,
     required String hint,
-    required void Function(String?)? onChanged,
-    String? Function(String?)? validator,
+    required void Function(T?)? onChanged,
+    String? Function(T?)? validator,
   }) {
     return Container(
       decoration: BoxDecoration(
@@ -575,7 +614,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           width: 2,
         ),
       ),
-      child: DropdownButtonFormField<String>(
+      child: DropdownButtonFormField<T>(
         value: value,
         hint: Text(
           hint,
@@ -586,11 +625,11 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
             letterSpacing: 1.2,
           ),
         ),
-        items: items.map((String item) {
-          return DropdownMenuItem(
+        items: items.map((T item) {
+          return DropdownMenuItem<T>(
             value: item,
             child: Text(
-              item,
+              item.toString(),
               style: const TextStyle(
                 color: Colors.black,
                 fontSize: 14,
@@ -616,4 +655,3 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     );
   }
 }
-
