@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isda_aqua_gentech/screens/fisherOrAdminLoginScreen/fisherOrAdminLoginScreen.dart';
+import '../fish_farm_locations/fish_farm_location.dart';
 import '../regisiter_new_farm_screen/register_new_farm_screen.dart';
 import 'admin_home_screen.dart';
 
@@ -113,6 +114,10 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                     children: [
                       _buildMenuItem('FISH FARM LOCATIONS', onTap: () {
                         Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => FishFarmLocationScreen()),
+                        );
                       }),
                       _buildMenuItem('ALERTS', onTap: () {
                         Navigator.pop(context);

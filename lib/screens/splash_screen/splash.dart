@@ -6,11 +6,11 @@ import 'package:http/http.dart' as http;
 import 'package:isda_aqua_gentech/constants/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../utils/static_accounts/static_accounts.dart';
 import '../ADMIN/admin_screen/admin_home_screen/admin_container_screen.dart';
 import '../FISHER/fisher_screens/fisher_container_screen/fisher_container_screen.dart';
-import '../FISHER/fisher_screens/fisher_home_screen/fisher_home_screen.dart';
 
 class Splash extends StatefulWidget {
   @override
@@ -97,17 +97,28 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
         // User is a fisher
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => FisherContainerScreen(),
+            builder: (context) => FisherContainerScreen(farmId: user.uid),
           ),
         );
       }
     } else {
-      // No user is signed in
-      Navigator.of(context).pushReplacement(
-        MaterialPageRoute(
-          builder: (context) => FisherOrAdminLoginScreen(),
-        ),
-      );
+      // Check for fisher login session
+      final prefs = await SharedPreferences.getInstance();
+      final farmId = prefs.getString('farmId');
+      if (farmId != null) {
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => FisherContainerScreen(farmId: farmId),
+          ),
+        );
+      } else {
+        // No user is signed in and no session found
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => FisherOrAdminLoginScreen(),
+          ),
+        );
+      }
     }
   }
 
@@ -243,3 +254,4 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
     );
   }
 }
+

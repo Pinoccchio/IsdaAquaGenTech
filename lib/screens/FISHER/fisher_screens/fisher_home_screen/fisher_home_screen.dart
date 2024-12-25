@@ -4,11 +4,19 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+
+import '../../fisher_message_screen/fisher_message_screen.dart';
 
 class FisherHomeScreen extends StatefulWidget {
   final VoidCallback openDrawer;
+  final String farmId;
 
-  const FisherHomeScreen({Key? key, required this.openDrawer}) : super(key: key);
+  const FisherHomeScreen({
+    Key? key,
+    required this.openDrawer,
+    required this.farmId,
+  }) : super(key: key);
 
   @override
   State<FisherHomeScreen> createState() => _FisherHomeScreenState();
@@ -21,11 +29,13 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   Position? currentPosition;
   bool isLoading = true;
   String? cityName;
+  String? farmName;
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
+    _fetchFarmData();
   }
 
   Future<void> _getCurrentLocation() async {
@@ -134,6 +144,24 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     }
   }
 
+  Future<void> _fetchFarmData() async {
+    try {
+      DocumentSnapshot farmDoc = await FirebaseFirestore.instance
+          .collection('farms')
+          .doc(widget.farmId)
+          .get();
+
+      if (farmDoc.exists) {
+        Map<String, dynamic> data = farmDoc.data() as Map<String, dynamic>;
+        setState(() {
+          farmName = data['farmName'] ?? 'Farm';
+        });
+      }
+    } catch (e) {
+      print('Error fetching farm data: $e');
+    }
+  }
+
   String _getWeatherAnimation(String condition) {
     switch (condition.toLowerCase()) {
       case 'clear':
@@ -186,10 +214,30 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
                 ),
                 IconButton(
                   icon: const Icon(Icons.chat_bubble_outline),
-                  onPressed: () {},
+                  onPressed: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FisherMessageScreen(farmId: widget.farmId),
+                      ),
+                    );
+                  },
                   color: Colors.black87,
                 ),
               ],
+            ),
+          ),
+
+          // Welcome Message
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Text(
+              farmName != null ? farmName! : 'Loading...',
+              style: const TextStyle(
+                fontSize: 24,
+                fontWeight: FontWeight.bold,
+                color: Color(0xFF40C4FF),
+              ),
             ),
           ),
 
@@ -345,3 +393,4 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     );
   }
 }
+

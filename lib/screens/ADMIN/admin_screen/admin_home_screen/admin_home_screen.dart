@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:isda_aqua_gentech/widgets/notification_badge.dart';
 import 'dart:io';
-
+import '../fish_farm_locations/farm_details_screen.dart';
 import 'admin_notification_screen.dart';
 
 class FarmData {
@@ -84,6 +84,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
         ],
       ),
     ) ?? false;
+  }
+
+  void _navigateToFarmDetails(String farmId) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FarmDetailScreen(farmId: farmId),
+      ),
+    );
   }
 
   @override
@@ -198,59 +207,62 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                     ),
                     itemCount: farms.length,
                     itemBuilder: (context, index) {
-                      return Card(
-                        elevation: 2,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Expanded(
-                              child: ClipRRect(
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(12),
-                                ),
-                                child: CachedNetworkImage(
-                                  imageUrl: farms[index].imageUrl,
-                                  fit: BoxFit.cover,
-                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                                  errorWidget: (context, url, error) => Image.asset(
-                                    'lib/assets/images/primary-logo.png',
+                      return GestureDetector(
+                        onTap: () => _navigateToFarmDetails(farms[index].id),
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: const BorderRadius.vertical(
+                                    top: Radius.circular(12),
+                                  ),
+                                  child: CachedNetworkImage(
+                                    imageUrl: farms[index].imageUrl,
                                     fit: BoxFit.cover,
+                                    placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                    errorWidget: (context, url, error) => Image.asset(
+                                      'lib/assets/images/primary-logo.png',
+                                      fit: BoxFit.cover,
+                                    ),
                                   ),
                                 ),
                               ),
-                            ),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      farms[index].name,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
+                              Container(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        farms[index].name,
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      overflow: TextOverflow.ellipsis,
                                     ),
-                                  ),
-                                  Container(
-                                    width: 8,
-                                    height: 8,
-                                    decoration: BoxDecoration(
-                                      shape: BoxShape.circle,
-                                      color: farms[index].isActive
-                                          ? Colors.green
-                                          : Colors.red,
+                                    Container(
+                                      width: 8,
+                                      height: 8,
+                                      decoration: BoxDecoration(
+                                        shape: BoxShape.circle,
+                                        color: farms[index].isActive
+                                            ? Colors.green
+                                            : Colors.red,
+                                      ),
                                     ),
-                                  ),
-                                ],
+                                  ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },
