@@ -6,6 +6,7 @@ import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+import '../../fish_scanner/fish_scanner.dart';
 import '../../fisher_message_screen/fisher_message_screen.dart';
 
 class FisherHomeScreen extends StatefulWidget {
@@ -75,13 +76,22 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     if (currentPosition == null) return;
 
     try {
+      final currentWeatherResponse = await http.get(Uri.parse(
+          'https://api.openweathermap.org/data/2.5/weather?lat=${currentPosition!.latitude}&lon=${currentPosition!.longitude}&appid=$apiKey&units=metric'));
+
       final forecastResponse = await http.get(Uri.parse(
           'https://api.openweathermap.org/data/2.5/forecast?lat=${currentPosition!.latitude}&lon=${currentPosition!.longitude}&appid=$apiKey&units=metric'));
 
-      if (forecastResponse.statusCode == 200) {
+      if (currentWeatherResponse.statusCode == 200 && forecastResponse.statusCode == 200) {
+        var currentWeatherData = json.decode(currentWeatherResponse.body);
         var forecastData = json.decode(forecastResponse.body);
 
-        // Group forecast by day
+        // Process current weather data
+        setState(() {
+          weatherData = currentWeatherData;
+        });
+
+        // Process forecast data
         Map<String, List<dynamic>> dailyForecasts = {};
         for (var item in forecastData['list']) {
           String date = DateFormat('yyyy-MM-dd').format(
@@ -192,200 +202,279 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     }
   }
 
+  Widget _buildCurrentWeather() {
+    if (weatherData == null) return Container();
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.blue.shade100,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            '${weatherData!['main']['temp'].round()}°C',
+            style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            weatherData!['weather'][0]['description'],
+            style: const TextStyle(fontSize: 18),
+          ),
+          const SizedBox(height: 16),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              _buildWeatherDetail(
+                Icons.water_drop,
+                'Humidity',
+                '${weatherData!['main']['humidity']}%',
+              ),
+              _buildWeatherDetail(
+                Icons.air,
+                'Wind',
+                '${weatherData!['wind']['speed']} m/s',
+              ),
+              _buildWeatherDetail(
+                Icons.visibility,
+                'Visibility',
+                '${(weatherData!['visibility'] / 1000).toStringAsFixed(1)} km',
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherDetail(IconData icon, String label, String value) {
+    return Column(
+      children: [
+        Icon(icon, color: Colors.blue.shade700),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(color: Colors.blue.shade700)),
+        Text(value, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ],
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return SafeArea(
-      child: Column(
+      child: Stack(
         children: [
-          // App Bar
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          SingleChildScrollView(
+            child: Column(
               children: [
-                IconButton(
-                  icon: const Icon(Icons.menu),
-                  onPressed: widget.openDrawer,
-                  color: Colors.black87,
-                ),
-                Image.asset(
-                  'lib/assets/images/primary-logo.png',
-                  height: 40,
-                ),
-                IconButton(
-                  icon: const Icon(Icons.chat_bubble_outline),
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => FisherMessageScreen(farmId: widget.farmId),
+                // App Bar
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.menu),
+                        onPressed: widget.openDrawer,
+                        color: Colors.black87,
                       ),
-                    );
-                  },
-                  color: Colors.black87,
+                      Image.asset(
+                        'lib/assets/images/primary-logo.png',
+                        height: 40,
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.chat_bubble_outline),
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => FisherMessageScreen(farmId: widget.farmId),
+                            ),
+                          );
+                        },
+                        color: Colors.black87,
+                      ),
+                    ],
+                  ),
                 ),
-              ],
-            ),
-          ),
 
-          // Welcome Message
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Text(
-              farmName != null ? farmName! : 'Loading...',
-              style: const TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF40C4FF),
-              ),
-            ),
-          ),
-
-          // News & Announcements
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF40C4FF)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              padding: const EdgeInsets.all(16.0),
-              child: Column(
-                children: [
-                  const Text(
-                    'NEWS & ANNOUNCEMENTS',
-                    style: TextStyle(
-                      fontSize: 16,
+                // Welcome Message
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Text(
+                    farmName != null ? farmName! : 'Loading...',
+                    style: const TextStyle(
+                      fontSize: 24,
                       fontWeight: FontWeight.bold,
-                      letterSpacing: 1.2,
+                      color: Color(0xFF40C4FF),
                     ),
                   ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: List.generate(
-                      3,
-                          (index) => Container(
-                        width: 8,
-                        height: 8,
-                        margin: const EdgeInsets.symmetric(horizontal: 4),
-                        decoration: const BoxDecoration(
-                          shape: BoxShape.circle,
-                          color: Colors.black54,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ),
+                ),
 
-          // Weather Card
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Container(
-              decoration: BoxDecoration(
-                border: Border.all(color: const Color(0xFF40C4FF)),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.all(16.0),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                // Current Weather
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                  child: _buildCurrentWeather(),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Weather Forecast
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF40C4FF)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Column(
                       children: [
-                        Text(
-                          cityName ?? 'Loading location...',
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w500,
+                        Padding(
+                          padding: const EdgeInsets.all(16.0),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(
+                                cityName ?? 'Loading location...',
+                                style: const TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                ),
+                              ),
+                              IconButton(
+                                icon: const Icon(Icons.refresh, size: 20),
+                                onPressed: _getWeatherData,
+                                color: Colors.black87,
+                              ),
+                            ],
                           ),
                         ),
-                        IconButton(
-                          icon: const Icon(Icons.refresh, size: 20),
-                          onPressed: _getWeatherData,
-                          color: Colors.black87,
+                        if (isLoading)
+                          const CircularProgressIndicator()
+                        else if (forecast != null)
+                          Container(
+                            height: 180,
+                            padding: const EdgeInsets.symmetric(horizontal: 8),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: List.generate(
+                                forecast!.length,
+                                    (index) {
+                                  final forecastData = forecast![index];
+                                  return Expanded(
+                                    child: Container(
+                                      padding: const EdgeInsets.all(8),
+                                      child: Column(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Text(
+                                            DateFormat('EEE\nMMM d').format(forecastData['date']),
+                                            textAlign: TextAlign.center,
+                                            style: const TextStyle(
+                                              fontSize: 14,
+                                              height: 1.2,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 8),
+                                          SizedBox(
+                                            height: 40,
+                                            width: 40,
+                                            child: Lottie.asset(
+                                              _getWeatherAnimation(forecastData['condition']),
+                                              fit: BoxFit.contain,
+                                            ),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            _getWeatherCondition(forecastData['condition']),
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${forecastData['minTemp']}-${forecastData['maxTemp']} °C',
+                                            style: const TextStyle(fontSize: 12),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            '${forecastData['probability']}%',
+                                            style: const TextStyle(
+                                              fontSize: 12,
+                                              color: Colors.grey,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+
+                // News & Announcements
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Container(
+                    decoration: BoxDecoration(
+                      border: Border.all(color: const Color(0xFF40C4FF)),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    padding: const EdgeInsets.all(16.0),
+                    child: Column(
+                      children: [
+                        const Text(
+                          'NEWS & ANNOUNCEMENTS',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.2,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: List.generate(
+                            3,
+                                (index) => Container(
+                              width: 8,
+                              height: 8,
+                              margin: const EdgeInsets.symmetric(horizontal: 4),
+                              decoration: const BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: Colors.black54,
+                              ),
+                            ),
+                          ),
                         ),
                       ],
                     ),
                   ),
-                  if (isLoading)
-                    const CircularProgressIndicator()
-                  else if (forecast != null)
-                    Container(
-                      height: 180,
-                      padding: const EdgeInsets.symmetric(horizontal: 8),
-                      child: Row(
-                        mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                        children: List.generate(
-                          forecast!.length,
-                              (index) {
-                            final forecastData = forecast![index];
-                            return Expanded(
-                              child: Container(
-                                padding: const EdgeInsets.all(8),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Text(
-                                      DateFormat('EEE\nMMM d').format(forecastData['date']),
-                                      textAlign: TextAlign.center,
-                                      style: const TextStyle(
-                                        fontSize: 14,
-                                        height: 1.2,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    SizedBox(
-                                      height: 40,
-                                      width: 40,
-                                      child: Lottie.asset(
-                                        _getWeatherAnimation(forecastData['condition']),
-                                        fit: BoxFit.contain,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      _getWeatherCondition(forecastData['condition']),
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${forecastData['minTemp']}-${forecastData['maxTemp']} °C',
-                                      style: const TextStyle(fontSize: 12),
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      '${forecastData['probability']}%',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        color: Colors.grey,
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            );
-                          },
-                        ),
-                      ),
-                    ),
-                ],
-              ),
+                ),
+
+                // Add some padding at the bottom to ensure content isn't hidden behind the floating button
+                const SizedBox(height: 96),
+              ],
             ),
           ),
-
-          const Spacer(),
-
-          // Camera Button
-          Padding(
-            padding: const EdgeInsets.only(bottom: 32.0),
-            child: FloatingActionButton(
-              onPressed: () {},
-              backgroundColor: const Color(0xFF40C4FF),
-              child: const Icon(Icons.camera_alt, size: 32),
+          Positioned(
+            left: 0,
+            right: 0,
+            bottom: 16,
+            child: Center(
+              child: FloatingActionButton(
+                onPressed: () {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(builder: (context) =>  FishScanner()),
+                  );
+                },
+                backgroundColor: const Color(0xFF40C4FF),
+                child: const Icon(Icons.camera_alt, size: 32),
+              ),
             ),
           ),
         ],

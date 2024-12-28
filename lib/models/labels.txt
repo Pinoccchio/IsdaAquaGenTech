@@ -1,0 +1,4 @@
+0 Fighting Fish
+1 Gold Fish
+2 Guppy Fish
+3 Koi Fish
