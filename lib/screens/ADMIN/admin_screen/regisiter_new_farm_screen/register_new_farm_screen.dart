@@ -187,7 +187,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           'password': _passwordController.text,
           'pondImageUrl': imageUrl,
           'createdAt': DateFormat('h:mm a').format(DateTime.now()),
-          'status': 'offline',
+          'status': 'pending',
         });
 
         // Show success message

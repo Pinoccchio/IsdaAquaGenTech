@@ -39,7 +39,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   void dispose() {
     _locationTimer?.cancel();
     _positionStream?.cancel();
-    _updateFarmStatus('offline');
     super.dispose();
   }
 
@@ -58,9 +57,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
       print('Location permissions are permanently denied');
       return;
     }
-
-    // Update farm status to online
-    await _updateFarmStatus('online');
 
     // Start location tracking
     const locationSettings = LocationSettings(
@@ -85,20 +81,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
       });
     } catch (e) {
       print('Error updating location: $e');
-    }
-  }
-
-  Future<void> _updateFarmStatus(String status) async {
-    try {
-      await FirebaseFirestore.instance
-          .collection('farms')
-          .doc(widget.farmId)
-          .update({
-        'status': status,
-        'last_status_update': FieldValue.serverTimestamp(),
-      });
-    } catch (e) {
-      print('Error updating farm status: $e');
     }
   }
 
@@ -136,7 +118,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
           ),
           TextButton(
             onPressed: () async {
-              await _updateFarmStatus('offline');
               Navigator.of(context).pop(true);
               exit(0);
             },
@@ -149,16 +130,8 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-        final navigator = Navigator.of(context);
-        final shouldPop = await _onWillPop();
-        if (shouldPop) {
-          navigator.pop();
-        }
-      },
+    return WillPopScope(
+      onWillPop: _onWillPop,
       child: Scaffold(
         key: _scaffoldKey,
         drawer: Drawer(
@@ -231,7 +204,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => const FisherReportsScreen(),
+                          builder: (context) => FisherReportsScreen(farmId: widget.farmId),
                         ),
                       );
                     }),
@@ -269,7 +242,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                 'LOG OUT',
                 onTap: () async {
                   Navigator.pop(context);
-                  await _updateFarmStatus('offline');
                   final prefs = await SharedPreferences.getInstance();
                   await prefs.remove('farmId');
                   await prefs.remove('farmName');

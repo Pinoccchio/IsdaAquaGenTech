@@ -5,6 +5,9 @@ import 'dart:convert';
 import 'package:intl/intl.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'dart:io';
+import 'package:image_picker/image_picker.dart';
+import 'dart:async';
 
 import '../../fish_scanner/fish_scanner.dart';
 import '../../fisher_message_screen/fisher_message_screen.dart';
@@ -31,12 +34,38 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   bool isLoading = true;
   String? cityName;
   String? farmName;
+  DateTime currentTime = DateTime.now();
+  Timer? timer;
+  Timer? weatherTimer;
 
   @override
   void initState() {
     super.initState();
     _getCurrentLocation();
     _fetchFarmData();
+    _startClock();
+    _startWeatherRefresh();
+  }
+
+  @override
+  void dispose() {
+    timer?.cancel();
+    weatherTimer?.cancel();
+    super.dispose();
+  }
+
+  void _startClock() {
+    timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
+      setState(() {
+        currentTime = DateTime.now();
+      });
+    });
+  }
+
+  void _startWeatherRefresh() {
+    weatherTimer = Timer.periodic(const Duration(minutes: 5), (Timer t) {
+      _getWeatherData();
+    });
   }
 
   Future<void> _getCurrentLocation() async {
@@ -75,6 +104,10 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   Future<void> _getWeatherData() async {
     if (currentPosition == null) return;
 
+    setState(() {
+      isLoading = true;
+    });
+
     try {
       final currentWeatherResponse = await http.get(Uri.parse(
           'https://api.openweathermap.org/data/2.5/weather?lat=${currentPosition!.latitude}&lon=${currentPosition!.longitude}&appid=$apiKey&units=metric'));
@@ -86,60 +119,11 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
         var currentWeatherData = json.decode(currentWeatherResponse.body);
         var forecastData = json.decode(forecastResponse.body);
 
-        // Process current weather data
         setState(() {
           weatherData = currentWeatherData;
         });
 
-        // Process forecast data
-        Map<String, List<dynamic>> dailyForecasts = {};
-        for (var item in forecastData['list']) {
-          String date = DateFormat('yyyy-MM-dd').format(
-              DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000));
-          if (!dailyForecasts.containsKey(date)) {
-            dailyForecasts[date] = [];
-          }
-          dailyForecasts[date]!.add(item);
-        }
-
-        // Process daily forecasts
-        List<Map<String, dynamic>> processedForecast = [];
-        dailyForecasts.forEach((date, forecasts) {
-          double minTemp = double.infinity;
-          double maxTemp = double.negativeInfinity;
-          int rainCount = 0;
-          String mainCondition = '';
-          Map<String, int> conditionCounts = {};
-
-          for (var forecast in forecasts) {
-            double temp = forecast['main']['temp'].toDouble();
-            minTemp = temp < minTemp ? temp : minTemp;
-            maxTemp = temp > maxTemp ? temp : maxTemp;
-
-            String condition = forecast['weather'][0]['main'];
-            conditionCounts[condition] = (conditionCounts[condition] ?? 0) + 1;
-
-            if (condition == 'Rain' || condition == 'Thunderstorm') {
-              rainCount++;
-            }
-          }
-
-          // Get most common condition
-          mainCondition = conditionCounts.entries
-              .reduce((a, b) => a.value > b.value ? a : b)
-              .key;
-
-          // Calculate rain probability
-          double probability = (rainCount / forecasts.length) * 100;
-
-          processedForecast.add({
-            'date': DateTime.parse(date),
-            'minTemp': minTemp.round(),
-            'maxTemp': maxTemp.round(),
-            'condition': mainCondition,
-            'probability': probability.round(),
-          });
-        });
+        List<Map<String, dynamic>> processedForecast = _processForecastData(forecastData);
 
         setState(() {
           forecast = processedForecast.take(4).toList();
@@ -152,6 +136,56 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
         isLoading = false;
       });
     }
+  }
+
+  List<Map<String, dynamic>> _processForecastData(Map<String, dynamic> forecastData) {
+    Map<String, List<dynamic>> dailyForecasts = {};
+    for (var item in forecastData['list']) {
+      String date = DateFormat('yyyy-MM-dd').format(
+          DateTime.fromMillisecondsSinceEpoch(item['dt'] * 1000));
+      if (!dailyForecasts.containsKey(date)) {
+        dailyForecasts[date] = [];
+      }
+      dailyForecasts[date]!.add(item);
+    }
+
+    List<Map<String, dynamic>> processedForecast = [];
+    dailyForecasts.forEach((date, forecasts) {
+      double minTemp = double.infinity;
+      double maxTemp = double.negativeInfinity;
+      int rainCount = 0;
+      String mainCondition = '';
+      Map<String, int> conditionCounts = {};
+
+      for (var forecast in forecasts) {
+        double temp = forecast['main']['temp'].toDouble();
+        minTemp = temp < minTemp ? temp : minTemp;
+        maxTemp = temp > maxTemp ? temp : maxTemp;
+
+        String condition = forecast['weather'][0]['main'];
+        conditionCounts[condition] = (conditionCounts[condition] ?? 0) + 1;
+
+        if (condition == 'Rain' || condition == 'Thunderstorm') {
+          rainCount++;
+        }
+      }
+
+      mainCondition = conditionCounts.entries
+          .reduce((a, b) => a.value > b.value ? a : b)
+          .key;
+
+      double probability = (rainCount / forecasts.length) * 100;
+
+      processedForecast.add({
+        'date': DateTime.parse(date),
+        'minTemp': minTemp.round(),
+        'maxTemp': maxTemp.round(),
+        'condition': mainCondition,
+        'probability': probability.round(),
+      });
+    });
+
+    return processedForecast;
   }
 
   Future<void> _fetchFarmData() async {
@@ -169,6 +203,79 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
       }
     } catch (e) {
       print('Error fetching farm data: $e');
+    }
+  }
+
+  Future<void> _showImageSourceDialog() async {
+    ImageSource? source = await showDialog<ImageSource>(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Text(
+                  'Select Image Source',
+                  style: TextStyle(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    Column(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.camera_alt, size: 32),
+                          onPressed: () => Navigator.pop(context, ImageSource.camera),
+                          color: const Color(0xFF40C4FF),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Camera'),
+                      ],
+                    ),
+                    Column(
+                      children: [
+                        IconButton(
+                          icon: const Icon(Icons.photo_library, size: 32),
+                          onPressed: () => Navigator.pop(context, ImageSource.gallery),
+                          color: const Color(0xFF40C4FF),
+                        ),
+                        const SizedBox(height: 8),
+                        const Text('Gallery'),
+                      ],
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (source != null) {
+      final ImagePicker picker = ImagePicker();
+      final XFile? image = await picker.pickImage(source: source);
+      if (image != null) {
+        if (!mounted) return;
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FishScanner(
+              farmId: widget.farmId,
+              initialImage: File(image.path),
+            ),
+          ),
+        );
+      }
     }
   }
 
@@ -205,6 +312,9 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   Widget _buildCurrentWeather() {
     if (weatherData == null) return Container();
 
+    final formattedDate = DateFormat('MMMM d, yyyy').format(currentTime);
+    final formattedTime = DateFormat('h:mm:ss a').format(currentTime);
+
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
@@ -214,6 +324,15 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            formattedDate,
+            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+          ),
+          Text(
+            formattedTime,
+            style: const TextStyle(fontSize: 16),
+          ),
+          const SizedBox(height: 16),
           Text(
             '${weatherData!['main']['temp'].round()}°C',
             style: const TextStyle(fontSize: 36, fontWeight: FontWeight.bold),
@@ -261,224 +380,211 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return SafeArea(
-      child: Stack(
-        children: [
-          SingleChildScrollView(
-            child: Column(
-              children: [
-                // App Bar
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.menu),
-                        onPressed: widget.openDrawer,
-                        color: Colors.black87,
-                      ),
-                      Image.asset(
-                        'lib/assets/images/primary-logo.png',
-                        height: 40,
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chat_bubble_outline),
-                        onPressed: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => FisherMessageScreen(farmId: widget.farmId),
-                            ),
-                          );
-                        },
-                        color: Colors.black87,
-                      ),
-                    ],
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // App Bar (fixed)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  IconButton(
+                    icon: const Icon(Icons.menu),
+                    onPressed: widget.openDrawer,
+                    color: Colors.black87,
                   ),
-                ),
-
-                // Welcome Message
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Text(
-                    farmName != null ? farmName! : 'Loading...',
-                    style: const TextStyle(
-                      fontSize: 24,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF40C4FF),
-                    ),
+                  Image.asset(
+                    'lib/assets/images/primary-logo.png',
+                    height: 40,
                   ),
-                ),
-
-                // Current Weather
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16.0),
-                  child: _buildCurrentWeather(),
-                ),
-
-                const SizedBox(height: 16),
-
-                // Weather Forecast
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF40C4FF)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: Column(
-                      children: [
-                        Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(
-                                cityName ?? 'Loading location...',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
-                                ),
-                              ),
-                              IconButton(
-                                icon: const Icon(Icons.refresh, size: 20),
-                                onPressed: _getWeatherData,
-                                color: Colors.black87,
-                              ),
-                            ],
-                          ),
+                  IconButton(
+                    icon: const Icon(Icons.chat_bubble_outline),
+                    onPressed: () {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FisherMessageScreen(farmId: widget.farmId),
                         ),
-                        if (isLoading)
-                          const CircularProgressIndicator()
-                        else if (forecast != null)
-                          Container(
-                            height: 180,
-                            padding: const EdgeInsets.symmetric(horizontal: 8),
-                            child: Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                              children: List.generate(
-                                forecast!.length,
-                                    (index) {
-                                  final forecastData = forecast![index];
-                                  return Expanded(
-                                    child: Container(
-                                      padding: const EdgeInsets.all(8),
-                                      child: Column(
-                                        mainAxisSize: MainAxisSize.min,
-                                        children: [
-                                          Text(
-                                            DateFormat('EEE\nMMM d').format(forecastData['date']),
-                                            textAlign: TextAlign.center,
-                                            style: const TextStyle(
-                                              fontSize: 14,
-                                              height: 1.2,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 8),
-                                          SizedBox(
-                                            height: 40,
-                                            width: 40,
-                                            child: Lottie.asset(
-                                              _getWeatherAnimation(forecastData['condition']),
-                                              fit: BoxFit.contain,
-                                            ),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            _getWeatherCondition(forecastData['condition']),
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${forecastData['minTemp']}-${forecastData['maxTemp']} °C',
-                                            style: const TextStyle(fontSize: 12),
-                                          ),
-                                          const SizedBox(height: 4),
-                                          Text(
-                                            '${forecastData['probability']}%',
-                                            style: const TextStyle(
-                                              fontSize: 12,
-                                              color: Colors.grey,
-                                            ),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  );
-                                },
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
+                      );
+                    },
+                    color: Colors.black87,
                   ),
-                ),
-
-                // News & Announcements
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Container(
-                    decoration: BoxDecoration(
-                      border: Border.all(color: const Color(0xFF40C4FF)),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    padding: const EdgeInsets.all(16.0),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'NEWS & ANNOUNCEMENTS',
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1.2,
-                          ),
-                        ),
-                        const SizedBox(height: 16),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: List.generate(
-                            3,
-                                (index) => Container(
-                              width: 8,
-                              height: 8,
-                              margin: const EdgeInsets.symmetric(horizontal: 4),
-                              decoration: const BoxDecoration(
-                                shape: BoxShape.circle,
-                                color: Colors.black54,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-
-                // Add some padding at the bottom to ensure content isn't hidden behind the floating button
-                const SizedBox(height: 96),
-              ],
-            ),
-          ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 16,
-            child: Center(
-              child: FloatingActionButton(
-                onPressed: () {
-                  Navigator.push(
-                    context,
-                    MaterialPageRoute(builder: (context) =>  FishScanner()),
-                  );
-                },
-                backgroundColor: const Color(0xFF40C4FF),
-                child: const Icon(Icons.camera_alt, size: 32),
+                ],
               ),
             ),
-          ),
-        ],
+            // Scrollable content
+            Expanded(
+              child: SingleChildScrollView(
+                child: Column(
+                  children: [
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Text(
+                        farmName != null ? farmName! : 'Loading...',
+                        style: const TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF40C4FF),
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF40C4FF)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: const EdgeInsets.all(16.0),
+                        child: Column(
+                          children: [
+                            const Text(
+                              'NEWS & ANNOUNCEMENTS',
+                              style: TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                                letterSpacing: 1.2,
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: List.generate(
+                                3,
+                                    (index) => Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.symmetric(horizontal: 4),
+                                  decoration: const BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: Colors.black54,
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: _buildCurrentWeather(),
+                    ),
+                    const SizedBox(height: 16),
+                    Padding(
+                      padding: const EdgeInsets.all(16.0),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF40C4FF)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Column(
+                          children: [
+                            Padding(
+                              padding: const EdgeInsets.all(16.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text(
+                                    cityName ?? 'Loading location...',
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.refresh, size: 20),
+                                    onPressed: _getWeatherData,
+                                    color: Colors.black87,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            if (isLoading)
+                              const CircularProgressIndicator()
+                            else if (forecast != null)
+                              Container(
+                                height: 180,
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                  children: List.generate(
+                                    forecast!.length,
+                                        (index) {
+                                      final forecastData = forecast![index];
+                                      return Expanded(
+                                        child: Container(
+                                          padding: const EdgeInsets.all(8),
+                                          child: Column(
+                                            mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                DateFormat('EEE\nMMM d').format(forecastData['date']),
+                                                textAlign: TextAlign.center,
+                                                style: const TextStyle(
+                                                  fontSize: 14,
+                                                  height: 1.2,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 8),
+                                              SizedBox(
+                                                height: 40,
+                                                width: 40,
+                                                child: Lottie.asset(
+                                                  _getWeatherAnimation(forecastData['condition']),
+                                                  fit: BoxFit.contain,
+                                                ),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                _getWeatherCondition(forecastData['condition']),
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${forecastData['minTemp']}-${forecastData['maxTemp']} °C',
+                                                style: const TextStyle(fontSize: 12),
+                                              ),
+                                              const SizedBox(height: 4),
+                                              Text(
+                                                '${forecastData['probability']}%',
+                                                style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey,
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 96),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
+      floatingActionButton: FloatingActionButton(
+        onPressed: () {
+          if (mounted) {
+            _showImageSourceDialog();
+          }
+        },
+        backgroundColor: const Color(0xFF40C4FF),
+        child: const Icon(Icons.camera_alt, size: 32),
+      ),
+      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
     );
   }
 }

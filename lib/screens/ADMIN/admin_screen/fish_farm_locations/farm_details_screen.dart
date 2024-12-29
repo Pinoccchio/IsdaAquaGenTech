@@ -60,7 +60,6 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
       if (realtimeLocation != null) {
         _farmLocation = LatLng(realtimeLocation.latitude, realtimeLocation.longitude);
       } else {
-        // If realtime_location is not available, use the address to get coordinates
         final String address = _farmData!['address'] ?? '';
         if (address.isNotEmpty) {
           try {
@@ -80,13 +79,24 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
             Marker(
               markerId: MarkerId(widget.farmId),
               position: _farmLocation!,
-              icon: _farmData!['status'] == 'online'
-                  ? BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen)
-                  : BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+              icon: _getMarkerIcon(_farmData!['status']),
             ),
           };
         });
       }
+    }
+  }
+
+  BitmapDescriptor _getMarkerIcon(String status) {
+    switch (status) {
+      case 'pending':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+      case 'virusLikelyDetected':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
+      case 'virusNotLikelyDetected':
+        return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+      default:
+        return BitmapDescriptor.defaultMarker; // Default marker color
     }
   }
 
@@ -227,13 +237,14 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
                           vertical: 6,
                         ),
                         decoration: BoxDecoration(
-                          color: _farmData!['status'] == 'online'
-                              ? const Color(0xFF4CAF50)
-                              : const Color(0xFFF44336),
+                          color: _getStatusColor(_farmData!['status']),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          _farmData!['status'] == 'online' ? 'Active' : 'Inactive',
+                          _farmData!['status'] == 'pending' ? 'Pending' :
+                          _farmData!['status'] == 'virusLikelyDetected' ? 'Virus Likely Detected' :
+                          _farmData!['status'] == 'virusNotLikelyDetected' ? 'Virus Not Likely Detected' :
+                          'Inactive',
                           style: const TextStyle(
                             color: Colors.white,
                             fontWeight: FontWeight.bold,
@@ -367,5 +378,18 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
           ),
       ],
     );
+  }
+
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'pending':
+        return const Color(0xFFFF9800); // Orange
+      case 'virusLikelyDetected':
+        return const Color(0xFFF44336); // Red
+      case 'virusNotLikelyDetected':
+        return const Color(0xFF4CAF50); // Green
+      default:
+        return const Color(0xFFF44336); // Default to red (inactive)
+    }
   }
 }

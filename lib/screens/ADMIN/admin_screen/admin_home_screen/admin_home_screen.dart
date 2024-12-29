@@ -10,13 +10,13 @@ class FarmData {
   final String id;
   final String name;
   final String imageUrl;
-  final bool isActive;
+  final String status;
 
   FarmData({
     required this.id,
     required this.name,
     required this.imageUrl,
-    required this.isActive,
+    required this.status,
   });
 
   factory FarmData.fromFirestore(DocumentSnapshot doc) {
@@ -25,7 +25,7 @@ class FarmData {
       id: doc.id,
       name: data['farmName'] ?? 'Unnamed Farm',
       imageUrl: data['pondImageUrl'] ?? 'lib/assets/images/placeholder.png',
-      isActive: data['status'] == 'online',
+      status: data['status'] ?? 'pending',
     );
   }
 }
@@ -95,18 +95,22 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 
+  Color _getStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'viruslikelydetected':
+        return Colors.red;
+      case 'virusnotlikelydetected':
+        return Colors.green;
+      case 'pending':
+      default:
+        return Colors.orange;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
-    return PopScope(
-      canPop: false,
-      onPopInvoked: (didPop) async {
-        if (didPop) return;
-        final navigator = Navigator.of(context);
-        final shouldPop = await _onWillPop();
-        if (shouldPop) {
-          navigator.pop();
-        }
-      },
+    return WillPopScope(
+      onWillPop: _onWillPop,
       child: Scaffold(
         backgroundColor: Colors.white,
         appBar: AppBar(
@@ -193,6 +197,9 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                       .where((farm) => farm.name.toLowerCase().contains(_searchQuery.toLowerCase()))
                       .toList();
 
+                  // Sort farms alphabetically by name
+                  farms.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+
                   if (farms.isEmpty) {
                     return const Center(child: Text('No farms found'));
                   }
@@ -253,9 +260,7 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                                       height: 8,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: farms[index].isActive
-                                            ? Colors.green
-                                            : Colors.red,
+                                        color: _getStatusColor(farms[index].status),
                                       ),
                                     ),
                                   ],
@@ -276,4 +281,3 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 }
-
