@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 import 'fisher_message_detail_screen.dart';
 
@@ -16,15 +17,17 @@ class FisherMessageScreen extends StatefulWidget {
 }
 
 class _FisherMessageScreenState extends State<FisherMessageScreen> {
+  final Color primaryColor = const Color(0xFF40C4FF);
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
+        backgroundColor: Colors.white,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          icon: Icon(Icons.arrow_back, color: primaryColor),
           onPressed: () => Navigator.pop(context),
         ),
         title: Image.asset(
@@ -33,54 +36,78 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
         ),
         centerTitle: true,
       ),
-      body: Column(
-        children: [
-          const SizedBox(height: 24),
-          const Text(
-            'MESSAGE',
-            style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
-              letterSpacing: 1.2,
+      body: SafeArea(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
+              child: Text(
+                'Messages',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: primaryColor,
+                ),
+              ),
             ),
-          ),
-          const SizedBox(height: 24),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: FirebaseFirestore.instance
-                  .collection('messages')
-                  .where('farmId', isEqualTo: widget.farmId)
-                  .orderBy('timestamp', descending: true)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: FirebaseFirestore.instance
+                    .collection('messages')
+                    .where('farmId', isEqualTo: widget.farmId)
+                    .orderBy('timestamp', descending: true)
+                    .snapshots(),
+                builder: (context, snapshot) {
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
 
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                final messages = snapshot.data?.docs ?? [];
+                  final messages = snapshot.data?.docs ?? [];
 
-                if (messages.isEmpty) {
-                  return const Center(
-                    child: Text('No messages yet'),
-                  );
-                }
+                  if (messages.isEmpty) {
+                    return Center(
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            Icons.message_outlined,
+                            size: 64,
+                            color: primaryColor.withOpacity(0.5),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            'No messages yet',
+                            style: TextStyle(
+                              fontSize: 18,
+                              color: primaryColor,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: messages.length,
-                  itemBuilder: (context, index) {
-                    final message = messages[index];
-                    final data = message.data() as Map<String, dynamic>;
-                    final messageId = message.id;
-                    final hasUnread = data['status'] == 'unread';
+                  return ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+                    itemCount: messages.length,
+                    separatorBuilder: (context, index) => const SizedBox(height: 16),
+                    itemBuilder: (context, index) {
+                      final message = messages[index];
+                      final data = message.data() as Map<String, dynamic>;
+                      final messageId = message.id;
+                      final hasUnread = data['status'] == 'unread';
+                      final timestamp = data['timestamp'] as Timestamp;
+                      final dateTime = timestamp.toDate();
+                      final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
+                      final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
 
-                    return Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: InkWell(
+                      return InkWell(
                         onTap: () {
                           Navigator.push(
                             context,
@@ -93,49 +120,77 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
                           );
                         },
                         child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 12,
-                          ),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            border: Border.all(
-                              color: const Color(0xFF40C4FF),
-                              width: 1,
-                            ),
-                            borderRadius: BorderRadius.circular(8),
+                            color: hasUnread ? primaryColor.withOpacity(0.1) : Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: primaryColor.withOpacity(0.3)),
                           ),
                           child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(
-                                'ID# ${messageId.padLeft(6, '0')}',
-                                style: const TextStyle(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.w500,
+                              Container(
+                                width: 8,
+                                height: 8,
+                                margin: const EdgeInsets.only(top: 6, right: 12),
+                                decoration: BoxDecoration(
+                                  shape: BoxShape.circle,
+                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
                                 ),
                               ),
-                              if (hasUnread)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  decoration: const BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: Color(0xFF40C4FF),
-                                  ),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      'Message #${messageId.toString().padLeft(6, '0')}',
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: primaryColor,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      formattedDate,
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        color: Colors.grey[600],
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Text(
+                                      isVirusLikelyDetected
+                                          ? 'A scientist will visit your farm'
+                                          : 'No immediate action required',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w500,
+                                        color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                      ),
+                                    ),
+                                  ],
                                 ),
+                              ),
+                              Icon(
+                                Icons.chevron_right,
+                                color: primaryColor,
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                    );
-                  },
-                );
-              },
+                      );
+                    },
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 }
+
+
 

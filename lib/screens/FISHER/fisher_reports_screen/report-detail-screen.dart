@@ -1,28 +1,21 @@
 import 'package:flutter/material.dart';
-import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 
-class ReportDetailsScreen extends StatefulWidget {
-  final String reportId;
-  final File imageFile;
-  final String detection;
-  final Map<String, dynamic> farmData;
+class ReportDetailScreen extends StatefulWidget {
+  final DocumentSnapshot report;
 
-  const ReportDetailsScreen({
+  const ReportDetailScreen({
     Key? key,
-    required this.reportId,
-    required this.imageFile,
-    required this.detection,
-    required this.farmData,
+    required this.report,
   }) : super(key: key);
 
   @override
-  _ReportDetailsScreenState createState() => _ReportDetailsScreenState();
+  _ReportDetailScreenState createState() => _ReportDetailScreenState();
 }
 
-class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
+class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String _locationDescription = 'Fetching location...';
   bool _isSendingAlert = false;
   String _timestamp = 'Fetching timestamp...';
@@ -35,9 +28,10 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   }
 
   Future<void> _getLocationDescription() async {
-    if (widget.farmData['realtime_location'] != null) {
-      final lat = widget.farmData['realtime_location'][0];
-      final lng = widget.farmData['realtime_location'][1];
+    final data = widget.report.data() as Map<String, dynamic>;
+    if (data['realtime_location'] != null) {
+      final lat = data['realtime_location'][0];
+      final lng = data['realtime_location'][1];
 
       try {
         List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
@@ -71,24 +65,25 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     });
 
     try {
-      final farmId = widget.farmData['farmId'];
+      final data = widget.report.data() as Map<String, dynamic>;
+      final farmId = data['farmId'];
       if (farmId == null) {
         throw Exception('Farm ID is null');
       }
 
-      final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+      final detection = data['detection'] ?? 'Unknown';
+      final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
 
-      // Save the alert in the alerts collection
       await FirebaseFirestore.instance
           .collection('alerts')
           .add({
-        'reportId': widget.reportId,
-        'farmName': widget.farmData['farmName'],
-        'ownerFirstName': widget.farmData['firstName'],
-        'ownerLastName': widget.farmData['lastName'],
-        'detection': widget.detection,
-        'latitude': widget.farmData['realtime_location'][0],
-        'longitude': widget.farmData['realtime_location'][1],
+        'reportId': widget.report.id,
+        'farmName': data['farmName'],
+        'ownerFirstName': data['ownerFirstName'],
+        'ownerLastName': data['ownerLastName'],
+        'detection': detection,
+        'latitude': data['realtime_location']?[0],
+        'longitude': data['realtime_location']?[1],
         'locationDescription': _locationDescription,
         'timestamp': _timestamp,
         'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
@@ -105,7 +100,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         ),
       );
 
-      Navigator.pop(context); // Close the dialog
+      Navigator.pop(context);
     } catch (e) {
       if (!mounted) return;
 
@@ -176,9 +171,10 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     }
   }
 
-
   Future<void> _showMessageAlert() async {
-    final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+    final data = widget.report.data() as Map<String, dynamic>;
+    final detection = data['detection'] ?? 'Unknown';
+    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
 
     await showDialog(
       context: context,
@@ -211,7 +207,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.detection.toUpperCase()} AT ${widget.farmData['farmName'] ?? 'UNKNOWN FARM'} (OWNER: ${widget.farmData['firstName'] ?? ''} ${widget.farmData['lastName'] ?? ''})',
+                        '${detection.toUpperCase()} AT ${data['farmName'] ?? 'UNKNOWN FARM'} (OWNER: ${data['ownerFirstName'] ?? ''} ${data['ownerLastName'] ?? ''})',
                         style: const TextStyle(
                           fontSize: 14,
                           height: 1.5,
@@ -295,7 +291,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     try {
       DocumentSnapshot reportDoc = await FirebaseFirestore.instance
           .collection('reports')
-          .doc(widget.reportId)
+          .doc(widget.report.id)
           .get();
 
       if (reportDoc.exists) {
@@ -314,8 +310,11 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final organismName = _extractOrganismName(widget.detection);
-    final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+    final data = widget.report.data() as Map<String, dynamic>;
+    final detection = data['detection'] ?? 'Unknown';
+    final organismName = _extractOrganismName(detection);
+    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+    final imageUrl = data['imageUrl'] as String?;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -340,7 +339,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             children: [
               Center(
                 child: Text(
-                  'REPORT #${widget.reportId}',
+                  'REPORT #${widget.report.id}',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -359,11 +358,37 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(7),
-                      child: Image.file(
-                        widget.imageFile,
+                      child: imageUrl != null
+                          ? Image.network(
+                        imageUrl,
                         height: 200,
                         width: double.infinity,
                         fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Container(
+                            height: 200,
+                            width: double.infinity,
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: CircularProgressIndicator(
+                                value: loadingProgress.expectedTotalBytes != null
+                                    ? loadingProgress.cumulativeBytesLoaded /
+                                    loadingProgress.expectedTotalBytes!
+                                    : null,
+                                color: const Color(0xFF40C4FF),
+                              ),
+                            ),
+                          );
+                        },
+                      )
+                          : Container(
+                        height: 200,
+                        width: double.infinity,
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Text('No image available'),
+                        ),
                       ),
                     ),
                     Container(
@@ -422,7 +447,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                     ),
                   ),
                   child: Text(
-                    widget.detection.toUpperCase(),
+                    detection.toUpperCase(),
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
@@ -432,10 +457,10 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                 ),
               ),
               const SizedBox(height: 24),
-              _buildTextField('FARM NAME', widget.farmData['farmName'] ?? ''),
-              _buildTextField('OWNER', '${widget.farmData['firstName'] ?? ''} ${widget.farmData['lastName'] ?? ''}'),
-              _buildTextField('CONTACT NUMBER', widget.farmData['contactNumber'] ?? ''),
-              _buildTextField('FEED TYPES', widget.farmData['feedTypes'] ?? ''),
+              _buildTextField('FARM NAME', data['farmName'] ?? ''),
+              _buildTextField('OWNER', '${data['ownerFirstName'] ?? ''} ${data['ownerLastName'] ?? ''}'),
+              _buildTextField('CONTACT NUMBER', data['contactNumber'] ?? ''),
+              _buildTextField('FEED TYPES', data['feedTypes'] ?? ''),
               _buildTextField('DATE AND TIME REPORTED', _timestamp),
               _buildTextField('LOCATION', _locationDescription),
               const SizedBox(height: 16),
@@ -467,5 +492,4 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     );
   }
 }
-
 
