@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isda_aqua_gentech/screens/fisherOrAdminLoginScreen/fisherOrAdminLoginScreen.dart';
+import '../admin_alerts_screen/admin_alerts_screen.dart';
+import '../admin_reports_screen/admin_reports_screen.dart';
 import '../fish_farm_locations/fish_farm_location.dart';
 import '../regisiter_new_farm_screen/register_new_farm_screen.dart';
 import 'admin_home_screen.dart';
@@ -121,9 +123,17 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                       }),
                       _buildMenuItem('ALERTS', onTap: () {
                         Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => AdminAlertsScreen()),
+                        );
                       }),
                       _buildMenuItem('REPORTS', onTap: () {
-                        Navigator.pop(context); // Close the current menu
+                        Navigator.pop(context);
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => AdminReportsScreen()),
+                        );
                       }),
                       _buildMenuItem('REGISTER NEW FARM', onTap: () {
                         Navigator.pop(context);

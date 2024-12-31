@@ -4,6 +4,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:io';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../fisher_reports_screen/fisher_reports_screen.dart';
 import '../../tilapia_lake_virus_information_screen/tilapia_lake_virus_information_screen.dart';
 import '../../whitespot_syndrome_virus_information_screen/whitespot_syndrome_virus_information_screen.dart';
@@ -25,6 +26,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   String _farmName = 'FARM';
   String _firstName = '';
   String _lastName = '';
+  String? _farmImageUrl;
   Timer? _locationTimer;
   StreamSubscription<Position>? _positionStream;
 
@@ -97,6 +99,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
           _farmName = data['farmName'] ?? 'FARM';
           _firstName = data['firstName'] ?? '';
           _lastName = data['lastName'] ?? '';
+          _farmImageUrl = data['pondImageUrl'];
         });
       }
     } catch (e) {
@@ -174,8 +177,24 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                         ),
                       ),
                       child: ClipOval(
-                        child: Image.asset(
+                        child: _farmImageUrl != null
+                            ? CachedNetworkImage(
+                          imageUrl: _farmImageUrl!,
+                          width: 100,
+                          height: 100,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const CircularProgressIndicator(),
+                          errorWidget: (context, url, error) => Image.asset(
+                            'lib/assets/images/primary-logo.png',
+                            width: 100,
+                            height: 100,
+                            fit: BoxFit.cover,
+                          ),
+                        )
+                            : Image.asset(
                           'lib/assets/images/primary-logo.png',
+                          width: 100,
+                          height: 100,
                           fit: BoxFit.cover,
                         ),
                       ),
@@ -301,3 +320,4 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     );
   }
 }
+
