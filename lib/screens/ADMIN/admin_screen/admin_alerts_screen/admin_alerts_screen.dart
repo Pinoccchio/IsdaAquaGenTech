@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:intl/intl.dart';
 
 class AdminAlertsScreen extends StatefulWidget {
   const AdminAlertsScreen({Key? key}) : super(key: key);
@@ -20,9 +21,13 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
     return Colors.grey;
   }
 
-  String _formatTimestamp(String timestamp) {
-    // The timestamp is already in the correct format, so we can return it directly
-    return timestamp;
+  String _formatTimestamp(dynamic timestamp) {
+    if (timestamp is Timestamp) {
+      return DateFormat('MMM d, y h:mm a').format(timestamp.toDate());
+    } else if (timestamp is String) {
+      return timestamp;
+    }
+    return 'Invalid timestamp';
   }
 
   @override
@@ -101,7 +106,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
               final alert = snapshot.data!.docs[index].data() as Map<String, dynamic>;
               final detection = alert['detection'] as String;
               final farmName = alert['farmName'] as String;
-              final timestamp = _formatTimestamp(alert['timestamp'] as String);
+              final timestamp = _formatTimestamp(alert['timestamp']);
               final requiresImmediateAction = alert['requiresImmediateAction'] as bool;
 
               return GestureDetector(
@@ -258,7 +263,7 @@ class _AdminAlertsScreenState extends State<AdminAlertsScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Timestamp: ${_formatTimestamp(alert['timestamp'] as String)}',
+                        'Timestamp: ${_formatTimestamp(alert['timestamp'])}',
                         style: const TextStyle(fontSize: 14),
                       ),
                       const SizedBox(height: 16),

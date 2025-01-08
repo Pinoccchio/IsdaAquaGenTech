@@ -1,33 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'admin_report_detail_screen.dart';
 
 class AdminReportsScreen extends StatelessWidget {
   const AdminReportsScreen({Key? key}) : super(key: key);
 
-  Stream<QuerySnapshot> _getReportsStream() {
+  Stream<QuerySnapshot> _getAlertsStream() {
     return FirebaseFirestore.instance
-        .collection('reports')
+        .collection('alerts')
         .orderBy('timestamp', descending: true)
         .snapshots();
   }
 
-  Widget _buildStatusIndicator(bool isReplied, String detection) {
-    if (isReplied) {
-      return const Icon(Icons.check_circle, color: Colors.blue, size: 16);
-    } else {
-      final color = detection.toLowerCase().contains('not likely detected')
-          ? Colors.green
-          : Colors.red;
-      return Container(
-        width: 12,
-        height: 12,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          color: color,
-        ),
-      );
-    }
+  Widget _buildStatusIndicator(String detection) {
+    final color = detection.toLowerCase().contains('not likely detected')
+        ? Colors.green
+        : Colors.red;
+    return Container(
+      width: 12,
+      height: 12,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: color,
+      ),
+    );
   }
 
   @override
@@ -63,7 +60,7 @@ class AdminReportsScreen extends StatelessWidget {
           const SizedBox(height: 8),
           Expanded(
             child: StreamBuilder<QuerySnapshot>(
-              stream: _getReportsStream(),
+              stream: _getAlertsStream(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
                   return const Center(child: CircularProgressIndicator());
@@ -77,19 +74,33 @@ class AdminReportsScreen extends StatelessWidget {
                   return const Center(child: Text('No reports found.', style: TextStyle(fontSize: 16)));
                 }
 
-                final reports = snapshot.data!.docs;
+                final alerts = snapshot.data!.docs;
 
                 return ListView.builder(
                   padding: const EdgeInsets.symmetric(horizontal: 16),
-                  itemCount: reports.length + 1,
+                  itemCount: alerts.length + 1,
                   itemBuilder: (context, index) {
                     if (index == 0) {
                       return Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
-                          children: const [
+                          children: [
                             Expanded(
                               flex: 2,
+                              child: Padding(
+                                padding: const EdgeInsets.only(left: 8),
+                                child: Text(
+                                  'STATUS',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Colors.grey,
+                                  ),
+                                ),
+                              ),
+                            ),
+                            Expanded(
+                              flex: 3,
                               child: Text(
                                 'FARM NAME',
                                 style: TextStyle(
@@ -100,7 +111,7 @@ class AdminReportsScreen extends StatelessWidget {
                               ),
                             ),
                             Expanded(
-                              flex: 2,
+                              flex: 3,
                               child: Text(
                                 'LOCATION',
                                 style: TextStyle(
@@ -137,77 +148,84 @@ class AdminReportsScreen extends StatelessWidget {
                       );
                     }
 
-                    final report = reports[index - 1];
-                    final data = report.data() as Map<String, dynamic>;
+                    final alert = alerts[index - 1];
+                    final data = alert.data() as Map<String, dynamic>;
                     final timestamp = data['timestamp'] as Timestamp;
                     final dateTime = DateFormat('MM/dd/yyyy\nh:mm a').format(timestamp.toDate());
                     final detection = data['detection'] ?? 'Unknown';
-                    final location = data['location'] as Map<String, dynamic>;
-                    final isReplied = data['isReplied'] as bool? ?? false;
 
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 8),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: const Color(0xFF40C4FF)),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Row(
-                        children: [
-                          Container(
-                            margin: const EdgeInsets.only(left: 12, right: 8),
-                            child: _buildStatusIndicator(isReplied, detection),
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => AdminReportDetailScreen(alertId: alert.id),
                           ),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.all(8),
-                              child: Row(
-                                children: [
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      data['farmName'] ?? 'Unknown Farm',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      location['barangay'] ?? 'Unknown Location',
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      dateTime,
-                                      style: const TextStyle(
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ),
-                                  Expanded(
-                                    flex: 2,
-                                    child: Text(
-                                      detection.toUpperCase(),
-                                      style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w500,
-                                        color: detection.toLowerCase().contains('not likely detected')
-                                            ? Colors.green
-                                            : Colors.red,
-                                      ),
-                                    ),
-                                  ),
-                                ],
+                        );
+                      },
+                      child: Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF40C4FF)),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.all(8),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                flex: 2,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(left: 8),
+                                  child: _buildStatusIndicator(detection),
+                                ),
                               ),
-                            ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  data['farmName'] ?? 'Unknown Farm',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 3,
+                                child: Text(
+                                  data['locationDescription'] ?? 'Unknown Location',
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  dateTime,
+                                  style: const TextStyle(
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(
+                                  detection.toUpperCase(),
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w500,
+                                    color: detection.toLowerCase().contains('not likely detected')
+                                        ? Colors.green
+                                        : Colors.red,
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     );
                   },

@@ -3,6 +3,8 @@ import 'dart:io';
 import 'package:geocoding/geocoding.dart';
 import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import '../fisher_screens/fisher_container_screen/fisher_container_screen.dart';
 
 class ReportDetailsScreen extends StatefulWidget {
   final String reportId;
@@ -26,12 +28,16 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   String _locationDescription = 'Fetching location...';
   bool _isSendingAlert = false;
   String _timestamp = 'Fetching timestamp...';
+  String _imageUrl = '';
+  bool _isUploadingImage = false;
+  String? _imageUploadError;
 
   @override
   void initState() {
     super.initState();
     _getLocationDescription();
     _fetchReportData();
+    _uploadImage();
   }
 
   Future<void> _getLocationDescription() async {
@@ -63,8 +69,32 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     }
   }
 
+  Future<void> _uploadImage() async {
+    setState(() {
+      _isUploadingImage = true;
+    });
+    try {
+      final ref = FirebaseStorage.instance
+          .ref()
+          .child('report_images')
+          .child('${widget.reportId}.jpg');
+      await ref.putFile(widget.imageFile);
+      final url = await ref.getDownloadURL();
+      setState(() {
+        _imageUrl = url;
+        _isUploadingImage = false;
+      });
+    } catch (e) {
+      print('Error uploading image: $e');
+      setState(() {
+        _isUploadingImage = false;
+        _imageUploadError = 'Failed to upload image';
+      });
+    }
+  }
+
   Future<void> _saveAlert() async {
-    if (_isSendingAlert) return;
+    if (_isSendingAlert || _isUploadingImage) return;
 
     setState(() {
       _isSendingAlert = true;
@@ -78,40 +108,78 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
       final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
 
+      // Ensure the image is uploaded before saving the alert
+      if (_imageUrl.isEmpty) {
+        await _uploadImage();
+      }
+
       // Save the alert in the alerts collection
-      await FirebaseFirestore.instance
+      final alertRef = await FirebaseFirestore.instance
           .collection('alerts')
           .add({
         'reportId': widget.reportId,
-        'farmName': widget.farmData['farmName'],
-        'ownerFirstName': widget.farmData['firstName'],
-        'ownerLastName': widget.farmData['lastName'],
+        'farmName': widget.farmData['farmName'] ?? 'Unknown',
+        'ownerFirstName': widget.farmData['firstName'] ?? 'Unknown',
+        'ownerLastName': widget.farmData['lastName'] ?? 'Unknown',
         'detection': widget.detection,
-        'latitude': widget.farmData['realtime_location'][0],
-        'longitude': widget.farmData['realtime_location'][1],
+        'latitude': widget.farmData['realtime_location']?[0],
+        'longitude': widget.farmData['realtime_location']?[1],
         'locationDescription': _locationDescription,
-        'timestamp': _timestamp,
+        'timestamp': FieldValue.serverTimestamp(),
         'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
         'farmId': farmId,
         'requiresImmediateAction': isVirusLikelyDetected,
+        'contactNumber': widget.farmData['contactNumber'] ?? 'Unknown',
+        'feedTypes': widget.farmData['feedTypes'] ?? 'Unknown',
+        'imageUrl': _imageUrl,
+      });
+
+      // Store the alert as a message
+      await FirebaseFirestore.instance
+          .collection('messages')
+          .add({
+        'alertId': alertRef.id,
+        'farmId': farmId,
+        'content': 'Alert: ${widget.detection} at ${widget.farmData['farmName'] ?? 'Unknown Farm'}',
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'unread',
+        'type': 'alert',
+        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'detection': widget.detection,
+        'farmName': widget.farmData['farmName'] ?? 'Unknown',
+        'ownerFirstName': widget.farmData['firstName'] ?? 'Unknown',
+        'ownerLastName': widget.farmData['lastName'] ?? 'Unknown',
+        'contactNumber': widget.farmData['contactNumber'] ?? 'Unknown',
+        'feedTypes': widget.farmData['feedTypes'] ?? 'Unknown',
+        'location': {
+          'latitude': widget.farmData['realtime_location']?[0],
+          'longitude': widget.farmData['realtime_location']?[1],
+          'description': _locationDescription,
+        },
+        'imageUrl': _imageUrl,
+        'source': 'fisher',
       });
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Alert sent successfully'),
+          content: Text('Alert sent and message stored successfully'),
           backgroundColor: Colors.green,
         ),
       );
 
-      Navigator.pop(context); // Close the dialog
+      // Navigate to FisherContainerScreen and remove all previous routes
+      Navigator.of(context).pushAndRemoveUntil(
+        MaterialPageRoute(builder: (context) => FisherContainerScreen(farmId: farmId)),
+            (Route<dynamic> route) => false,
+      );
     } catch (e) {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send alert'),
+        SnackBar(
+          content: Text('Failed to send alert and store message: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -175,7 +243,6 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
       return 'Timestamp not available';
     }
   }
-
 
   Future<void> _showMessageAlert() async {
     final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
@@ -340,7 +407,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             children: [
               Center(
                 child: Text(
-                  'REPORT #${widget.reportId}',
+                  'REPORT',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -359,7 +426,44 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                   children: [
                     ClipRRect(
                       borderRadius: BorderRadius.circular(7),
-                      child: Image.file(
+                      child: _isUploadingImage
+                          ? const Center(
+                        child: CircularProgressIndicator(),
+                      )
+                          : _imageUploadError != null
+                          ? Center(
+                        child: Text(
+                          _imageUploadError!,
+                          style: const TextStyle(color: Colors.red),
+                        ),
+                      )
+                          : _imageUrl.isNotEmpty
+                          ? Image.network(
+                        _imageUrl,
+                        height: 200,
+                        width: double.infinity,
+                        fit: BoxFit.cover,
+                        loadingBuilder: (context, child, loadingProgress) {
+                          if (loadingProgress == null) return child;
+                          return Center(
+                            child: CircularProgressIndicator(
+                              value: loadingProgress.expectedTotalBytes != null
+                                  ? loadingProgress.cumulativeBytesLoaded /
+                                  loadingProgress.expectedTotalBytes!
+                                  : null,
+                            ),
+                          );
+                        },
+                        errorBuilder: (context, error, stackTrace) {
+                          return const Center(
+                            child: Text(
+                              'Failed to load image',
+                              style: TextStyle(color: Colors.red),
+                            ),
+                          );
+                        },
+                      )
+                          : Image.file(
                         widget.imageFile,
                         height: 200,
                         width: double.infinity,
@@ -408,6 +512,16 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                   ],
                 ),
               ),
+              if (_imageUploadError != null)
+                ElevatedButton(
+                  onPressed: () {
+                    setState(() {
+                      _imageUploadError = null;
+                    });
+                    _uploadImage();
+                  },
+                  child: const Text('Retry Upload'),
+                ),
               const SizedBox(height: 8),
               Center(
                 child: Container(
@@ -467,5 +581,4 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     );
   }
 }
-
 

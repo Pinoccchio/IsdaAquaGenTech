@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
-class MessageDetailScreen extends StatelessWidget {
+class AdminMessageDetailScreen extends StatelessWidget {
   final String messageId;
   final String farmId;
 
-  const MessageDetailScreen({
+  const AdminMessageDetailScreen({
     Key? key,
     required this.messageId,
     required this.farmId,

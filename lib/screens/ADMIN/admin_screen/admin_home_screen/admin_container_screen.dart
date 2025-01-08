@@ -98,7 +98,8 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        userName,
+                        //userName
+                        "ADMIN",
                         style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,

@@ -18,13 +18,13 @@ class ReportDetailScreen extends StatefulWidget {
 class _ReportDetailScreenState extends State<ReportDetailScreen> {
   String _locationDescription = 'Fetching location...';
   bool _isSendingAlert = false;
-  String _timestamp = 'Fetching timestamp...';
+  String _timestamp = '';
 
   @override
   void initState() {
     super.initState();
-    _getLocationDescription();
     _fetchReportData();
+    _getLocationDescription();
   }
 
   Future<void> _getLocationDescription() async {
@@ -74,28 +74,58 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       final detection = data['detection'] ?? 'Unknown';
       final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
 
-      await FirebaseFirestore.instance
+      // Create the alert document
+      final alertRef = await FirebaseFirestore.instance
           .collection('alerts')
           .add({
         'reportId': widget.report.id,
-        'farmName': data['farmName'],
-        'ownerFirstName': data['ownerFirstName'],
-        'ownerLastName': data['ownerLastName'],
+        'farmName': data['farmName'] ?? 'Unknown',
+        'ownerFirstName': data['ownerFirstName'] ?? 'Unknown',
+        'ownerLastName': data['ownerLastName'] ?? 'Unknown',
         'detection': detection,
         'latitude': data['realtime_location']?[0],
         'longitude': data['realtime_location']?[1],
         'locationDescription': _locationDescription,
-        'timestamp': _timestamp,
+        'timestamp': FieldValue.serverTimestamp(),
         'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
         'farmId': farmId,
         'requiresImmediateAction': isVirusLikelyDetected,
+        'contactNumber': data['contactNumber'] ?? 'Unknown',
+        'feedTypes': data['feedTypes'] ?? 'Unknown',
+        'imageUrl': data['imageUrl'],
+      });
+
+      // Store the alert as a message
+      await FirebaseFirestore.instance
+          .collection('messages')
+          .add({
+        'alertId': alertRef.id,
+        'farmId': farmId,
+        'content': 'Alert: $detection at ${data['farmName'] ?? 'Unknown Farm'}',
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'unread',
+        'type': 'alert',
+        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'detection': detection,
+        'farmName': data['farmName'] ?? 'Unknown',
+        'ownerFirstName': data['ownerFirstName'] ?? 'Unknown',
+        'ownerLastName': data['ownerLastName'] ?? 'Unknown',
+        'contactNumber': data['contactNumber'] ?? 'Unknown',
+        'feedTypes': data['feedTypes'] ?? 'Unknown',
+        'location': {
+          'latitude': data['realtime_location']?[0],
+          'longitude': data['realtime_location']?[1],
+          'description': _locationDescription,
+        },
+        'imageUrl': data['imageUrl'],
+        'source': 'fisher',
       });
 
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Alert sent successfully'),
+          content: Text('Alert sent and message stored successfully'),
           backgroundColor: Colors.green,
         ),
       );
@@ -105,8 +135,8 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       if (!mounted) return;
 
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Failed to send alert'),
+        SnackBar(
+          content: Text('Failed to send alert and store message: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -287,25 +317,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     );
   }
 
-  Future<void> _fetchReportData() async {
-    try {
-      DocumentSnapshot reportDoc = await FirebaseFirestore.instance
-          .collection('reports')
-          .doc(widget.report.id)
-          .get();
-
-      if (reportDoc.exists) {
-        Map<String, dynamic> data = reportDoc.data() as Map<String, dynamic>;
-        setState(() {
-          _timestamp = _formatTimestamp(data['timestamp']);
-        });
-      }
-    } catch (e) {
-      print('Error fetching report data: $e');
-      setState(() {
-        _timestamp = 'Timestamp not available';
-      });
-    }
+  void _fetchReportData() {
+    final data = widget.report.data() as Map<String, dynamic>;
+    final timestamp = data['timestamp'];
+    setState(() {
+      _timestamp = _formatTimestamp(timestamp);
+    });
   }
 
   @override
@@ -339,7 +356,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
             children: [
               Center(
                 child: Text(
-                  'REPORT #${widget.report.id}',
+                  'REPORT',
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,

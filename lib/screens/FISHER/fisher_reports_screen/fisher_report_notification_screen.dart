@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'notification_alert_detail_screen.dart';
 
 class ReportNotificationScreen extends StatelessWidget {
   final String farmId;
@@ -92,91 +93,102 @@ class ReportNotificationScreen extends StatelessWidget {
                     itemBuilder: (context, index) {
                       final alert = alerts[index].data() as Map<String, dynamic>;
                       final detection = alert['detection'] as String;
-                      final timestamp = alert['timestamp'] as String;
+                      final timestamp = alert['timestamp'] as Timestamp;
+                      final formattedTimestamp = DateFormat('MMM d, y h:mm a').format(timestamp.toDate());
                       final requiresImmediateAction = alert['requiresImmediateAction'] as bool;
 
-                      return Container(
-                        padding: const EdgeInsets.all(16),
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: Color(0xFF40C4FF).withOpacity(0.3)),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.05),
-                              blurRadius: 10,
-                              offset: const Offset(0, 4),
+                      return GestureDetector(
+                        onTap: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => NotificationAlertDetailScreen(alert: alert),
                             ),
-                          ],
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    alert['farmName'],
-                                    style: TextStyle(
-                                      fontSize: 18,
-                                      fontWeight: FontWeight.bold,
-                                      color: Color(0xFF40C4FF),
+                          );
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.all(16),
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Color(0xFF40C4FF).withOpacity(0.3)),
+                            boxShadow: [
+                              BoxShadow(
+                                color: Colors.black.withOpacity(0.05),
+                                blurRadius: 10,
+                                offset: const Offset(0, 4),
+                              ),
+                            ],
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      alert['farmName'],
+                                      style: TextStyle(
+                                        fontSize: 18,
+                                        fontWeight: FontWeight.bold,
+                                        color: Color(0xFF40C4FF),
+                                      ),
                                     ),
                                   ),
-                                ),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                  decoration: BoxDecoration(
-                                    color: requiresImmediateAction ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-                                    borderRadius: BorderRadius.circular(12),
-                                  ),
-                                  child: Text(
-                                    requiresImmediateAction ? 'Urgent' : 'Normal',
-                                    style: TextStyle(
-                                      fontSize: 12,
-                                      fontWeight: FontWeight.bold,
-                                      color: requiresImmediateAction ? Colors.red : Colors.green,
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                    decoration: BoxDecoration(
+                                      color: requiresImmediateAction ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                                      borderRadius: BorderRadius.circular(12),
+                                    ),
+                                    child: Text(
+                                      requiresImmediateAction ? 'Urgent' : 'Normal',
+                                      style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.bold,
+                                        color: requiresImmediateAction ? Colors.red : Colors.green,
+                                      ),
                                     ),
                                   ),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                detection,
+                                style: TextStyle(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w500,
+                                  color: requiresImmediateAction ? Colors.red : Colors.green,
                                 ),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              detection,
-                              style: TextStyle(
-                                fontSize: 16,
-                                fontWeight: FontWeight.w500,
-                                color: requiresImmediateAction ? Colors.red : Colors.green,
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Location: ${alert['locationDescription']}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Location: ${alert['locationDescription']}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 4),
-                            Text(
-                              'Owner: ${alert['ownerFirstName']} ${alert['ownerLastName']}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Colors.grey[600],
+                              const SizedBox(height: 4),
+                              Text(
+                                'Owner: ${alert['ownerFirstName']} ${alert['ownerLastName']}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Colors.grey[600],
+                                ),
                               ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Timestamp: $timestamp',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.w500,
-                                color: Colors.grey[700],
+                              const SizedBox(height: 8),
+                              Text(
+                                'Timestamp: $formattedTimestamp',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w500,
+                                  color: Colors.grey[700],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       );
                     },

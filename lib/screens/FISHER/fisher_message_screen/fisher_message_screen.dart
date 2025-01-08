@@ -18,6 +18,7 @@ class FisherMessageScreen extends StatefulWidget {
 
 class _FisherMessageScreenState extends State<FisherMessageScreen> {
   final Color primaryColor = const Color(0xFF40C4FF);
+  final Color adminColor = Colors.purple;
 
   @override
   Widget build(BuildContext context) {
@@ -106,6 +107,7 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
                       final dateTime = timestamp.toDate();
                       final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
                       final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
+                      final isAdminMessage = data['source'] == 'admin';
 
                       return InkWell(
                         onTap: () {
@@ -122,33 +124,57 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: hasUnread ? primaryColor.withOpacity(0.1) : Colors.white,
+                            color: hasUnread
+                                ? (isAdminMessage ? adminColor.withOpacity(0.1) : primaryColor.withOpacity(0.1))
+                                : Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: primaryColor.withOpacity(0.3)),
+                            border: Border.all(color: isAdminMessage ? adminColor.withOpacity(0.3) : primaryColor.withOpacity(0.3)),
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                margin: const EdgeInsets.only(top: 6, right: 12),
-                                decoration: BoxDecoration(
-                                  shape: BoxShape.circle,
-                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                              if (!isAdminMessage)
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  margin: const EdgeInsets.only(top: 6, right: 12),
+                                  decoration: BoxDecoration(
+                                    shape: BoxShape.circle,
+                                    color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                  ),
                                 ),
-                              ),
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    Text(
-                                      'Message #${messageId.toString().padLeft(6, '0')}',
-                                      style: TextStyle(
-                                        fontSize: 16,
-                                        fontWeight: FontWeight.w600,
-                                        color: primaryColor,
-                                      ),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Text(
+                                          isAdminMessage ? 'From Admin' : 'To Admin',
+                                          style: TextStyle(
+                                            fontSize: 16,
+                                            fontWeight: FontWeight.w600,
+                                            color: isAdminMessage ? adminColor : primaryColor,
+                                          ),
+                                        ),
+                                        if (hasUnread)
+                                          Container(
+                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                            decoration: BoxDecoration(
+                                              color: isAdminMessage ? adminColor : primaryColor,
+                                              borderRadius: BorderRadius.circular(12),
+                                            ),
+                                            child: const Text(
+                                              'New',
+                                              style: TextStyle(
+                                                fontSize: 12,
+                                                fontWeight: FontWeight.bold,
+                                                color: Colors.white,
+                                              ),
+                                            ),
+                                          ),
+                                      ],
                                     ),
                                     const SizedBox(height: 4),
                                     Text(
@@ -160,21 +186,21 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
                                     ),
                                     const SizedBox(height: 8),
                                     Text(
-                                      isVirusLikelyDetected
-                                          ? 'A scientist will visit your farm'
-                                          : 'No immediate action required',
+                                      _getMessagePreview(data),
                                       style: TextStyle(
                                         fontSize: 14,
                                         fontWeight: FontWeight.w500,
-                                        color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                        color: isAdminMessage ? Colors.grey[800] : (isVirusLikelyDetected ? Colors.red : Colors.green),
                                       ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
                                     ),
                                   ],
                                 ),
                               ),
                               Icon(
                                 Icons.chevron_right,
-                                color: primaryColor,
+                                color: isAdminMessage ? adminColor : primaryColor,
                               ),
                             ],
                           ),
@@ -190,7 +216,20 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
       ),
     );
   }
-}
 
+  String _getMessagePreview(Map<String, dynamic> data) {
+    if (data['source'] == 'admin') {
+      return 'From Admin: ${data['replyMessage'] ?? 'No message content'}';
+    } else {
+      final detection = data['detection'] ?? 'Unknown';
+      final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
+      if (isVirusLikelyDetected) {
+        return 'To Admin: Alert - $detection detected';
+      } else {
+        return 'To Admin: Report - $detection';
+      }
+    }
+  }
+}
 
 

@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
 import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
+import 'fish_farm_details_screen.dart';
 
 class FishFarmLocationScreen extends StatefulWidget {
   const FishFarmLocationScreen({Key? key}) : super(key: key);
@@ -20,7 +21,6 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
   int _unreadNotifications = 0;
   String? _selectedFarmId;
   List<Map<String, dynamic>> _farmReports = [];
-  bool _isReplying = false;
   DateTime _selectedDate = DateTime.now().add(const Duration(days: 14));
   TimeOfDay _selectedTime = TimeOfDay.now();
 
@@ -176,380 +176,11 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
     return '${date.month}/${date.day}/${date.year} ${hour}:${date.minute.toString().padLeft(2, '0')} $period';
   }
 
-  Future<void> _showMessageAlert(Map<String, dynamic> report) async {
-    final detection = report['detection'] ?? 'Unknown';
-    final bool isVirusLikelyDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
-        !detection.toUpperCase().contains('NOT LIKELY DETECTED');
-
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'MESSAGE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${detection.toUpperCase()} AT ${report['farmName'] ?? 'UNKNOWN FARM'} (OWNER: ${report['ownerFirstName'] ?? ''} ${report['ownerLastName'] ?? ''})',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'LOCATION: ${report['locationDescription'] ?? 'Unknown'}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'TIMESTAMP: ${_formatTimestamp(report['timestamp'])}',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
-                        ),
-                      ),
-                      const SizedBox(height: 16),
-                      if (isVirusLikelyDetected)
-                        const Text(
-                          'NEED IMMEDIATE ACTION!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        )
-                      else
-                        const Text(
-                          'No immediate action required',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isReplying ? null : () {
-                      Navigator.of(context).pop();
-                      _showReplyDialog(report);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BFA5),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: _isReplying
-                        ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                        : const Text(
-                      'SEND MESSAGE',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate,
-      firstDate: DateTime.now(),
-      lastDate: DateTime.now().add(const Duration(days: 365)),
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
-  }
-
-  Future<void> _selectTime(BuildContext context) async {
-    final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: _selectedTime,
-    );
-    if (picked != null && picked != _selectedTime) {
-      setState(() {
-        _selectedTime = picked;
-      });
-    }
-  }
-
-  String _getFormattedDateTime() {
-    final date = DateFormat('MMMM d, yyyy').format(_selectedDate);
-    final time = _selectedTime.format(context);
-    return '$date at $time';
-  }
-
-  Future<void> _showReplyDialog(Map<String, dynamic> report) async {
-    final detection = report['detection'] ?? 'Unknown';
-    final bool isVirusLikelyDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
-        !detection.toUpperCase().contains('NOT LIKELY DETECTED');
-
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: SingleChildScrollView(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxWidth: MediaQuery.of(context).size.width * 0.9,
-                    maxHeight: MediaQuery.of(context).size.height * 0.9,
-                  ),
-                  child: IntrinsicHeight(
-                    child: Padding(
-                      padding: const EdgeInsets.all(20),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          const Text(
-                            'MESSAGE',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              letterSpacing: 1.2,
-                            ),
-                            textAlign: TextAlign.center,
-                          ),
-                          const SizedBox(height: 20),
-                          Container(
-                            padding: const EdgeInsets.all(16),
-                            decoration: BoxDecoration(
-                              border: Border.all(color: Colors.blue.shade200),
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  'NEEDED ACTION:',
-                                  style: TextStyle(
-                                    fontSize: 14,
-                                    fontWeight: FontWeight.bold,
-                                    height: 1.5,
-                                  ),
-                                ),
-                                const SizedBox(height: 8),
-                                Text(
-                                  isVirusLikelyDetected
-                                      ? 'A SCIENTIST WILL VISIT YOUR FARM TO COLLECT SAMPLES FOR CONFIRMATORY TEST.'
-                                      : 'NO IMMEDIATE ACTION REQUIRED. CONTINUE MONITORING YOUR FARM AND REPORT ANY CHANGES IN FISH HEALTH.',
-                                  style: const TextStyle(
-                                    fontSize: 14,
-                                    height: 1.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          if (isVirusLikelyDetected) ...[
-                            const SizedBox(height: 20),
-                            const Text(
-                              'SELECT VISITATION DATE AND TIME:',
-                              style: TextStyle(
-                                fontSize: 14,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Row(
-                              children: [
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => _selectDate(context).then((_) => setState(() {})),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.blue.shade200),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              DateFormat('MM/dd/yyyy').format(_selectedDate),
-                                              style: const TextStyle(fontSize: 14),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const Icon(Icons.calendar_today, color: Colors.blue, size: 18),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(width: 10),
-                                Expanded(
-                                  child: InkWell(
-                                    onTap: () => _selectTime(context).then((_) => setState(() {})),
-                                    child: Container(
-                                      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
-                                      decoration: BoxDecoration(
-                                        border: Border.all(color: Colors.blue.shade200),
-                                        borderRadius: BorderRadius.circular(8),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Expanded(
-                                            child: Text(
-                                              _selectedTime.format(context),
-                                              style: const TextStyle(fontSize: 14),
-                                              overflow: TextOverflow.ellipsis,
-                                            ),
-                                          ),
-                                          const Icon(Icons.access_time, color: Colors.blue, size: 18),
-                                        ],
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              'Selected: ${_getFormattedDateTime()}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                color: Colors.black,
-                              ),
-                            ),
-                          ],
-                          const SizedBox(height: 20),
-                          SizedBox(
-                            width: double.infinity,
-                            child: ElevatedButton(
-                              onPressed: () async {
-                                final replyMessage = isVirusLikelyDetected
-                                    ? 'A SCIENTIST WILL VISIT YOUR FARM TO COLLECT SAMPLES FOR CONFIRMATORY TEST.'
-                                    : 'NO IMMEDIATE ACTION REQUIRED. CONTINUE MONITORING YOUR FARM AND REPORT ANY CHANGES IN FISH HEALTH.';
-                                await _sendReply(report, replyMessage, isVirusLikelyDetected);
-                                Navigator.of(context).pop();
-                              },
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: const Color(0xFF00BFA5),
-                                padding: const EdgeInsets.symmetric(vertical: 16),
-                                shape: RoundedRectangleBorder(
-                                  borderRadius: BorderRadius.circular(24),
-                                ),
-                              ),
-                              child: const Text(
-                                'SEND MESSAGE',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
-
-  Future<void> _sendReply(Map<String, dynamic> report, String replyMessage, bool isVirusLikelyDetected) async {
-    try {
-      final farmId = report['farmId'];
-      final messageRef = FirebaseFirestore.instance.collection('messages').doc();
-      await messageRef.set({
-        'farmId': farmId,
-        'replyMessage': replyMessage,
-        'timestamp': FieldValue.serverTimestamp(),
-        'status': 'unread',
-        'visitationDateTime': isVirusLikelyDetected ? _getFormattedDateTime() : null,
-        'isVirusLikelyDetected': isVirusLikelyDetected,
-        'detection': report['detection'] ?? 'Unknown',
-        'confidence': report['confidence'] ?? 0.0,
-        'farmName': report['farmName'] ?? 'Unknown Farm',
-        'ownerFirstName': report['ownerFirstName'] ?? '',
-        'ownerLastName': report['ownerLastName'] ?? '',
-        'contactNumber': report['contactNumber'] ?? 'Unknown',
-        'feedTypes': report['feedTypes'] ?? 'Unknown',
-        'location': report['location'] ?? {},
-        'imageUrl': report['imageUrl'] ?? '',
-      });
-
-      await FirebaseFirestore.instance.collection('reports').doc(report['id']).update({
-        'isReplied': true,
-      });
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Message sent successfully')),
-      );
-    } catch (e) {
-      print('Error sending message: $e');
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to send message. Please try again.')),
-      );
-    }
-  }
-
   Widget _buildReportsList() {
     if (_selectedFarmId == null) return const SizedBox.shrink();
 
     return Container(
-      height: 200,
+      height: 250,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -572,7 +203,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
               ),
             ),
             child: Text(
-              'FARM ${_selectedFarmId}',
+              _farmReports.isNotEmpty ? _farmReports[0]['farmName'] ?? 'Unknown Farm' : 'Select a Farm',
               style: const TextStyle(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
@@ -582,32 +213,39 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
           ),
           Expanded(
             child: ListView.builder(
-              padding: const EdgeInsets.all(16),
+              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               itemCount: _farmReports.length,
               itemBuilder: (context, index) {
                 final report = _farmReports[index];
                 final detection = report['detection'] as String? ?? 'Unknown';
-                final status = report['status'] as String? ?? 'normal';
                 final isVirusLikelyDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
                     !detection.toUpperCase().contains('NOT LIKELY DETECTED');
 
                 return GestureDetector(
-                  onTap: () => _showMessageAlert(report),
+                  onTap: () => Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => FishFarmDetailsScreen(
+                        reportId: report['id'],
+                        farmData: report,
+                      ),
+                    ),
+                  ),
                   child: Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
+                    margin: const EdgeInsets.symmetric(vertical: 8),
+                    padding: const EdgeInsets.all(16),
                     decoration: BoxDecoration(
                       border: Border.all(
                         color: const Color(0xFF40C4FF),
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
                         Container(
-                          width: 12,
-                          height: 12,
-                          margin: const EdgeInsets.only(right: 8),
+                          width: 16,
+                          height: 16,
+                          margin: const EdgeInsets.only(right: 16),
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
                             color: report['isReplied'] == true
@@ -618,31 +256,23 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
                           ),
                         ),
                         Expanded(
-                          flex: 2,
+                          flex: 1,
                           child: Text(
-                            'ID# ${report['id']}',
+                            _formatTimestamp(report['timestamp'] as Timestamp),
                             style: const TextStyle(
-                              fontSize: 12,
+                              fontSize: 14,
                               fontWeight: FontWeight.w500,
                             ),
                           ),
                         ),
-                        Expanded(
-                          flex: 2,
-                          child: Text(
-                            _formatTimestamp(report['timestamp'] as Timestamp),
-                            style: const TextStyle(
-                              fontSize: 12,
-                            ),
-                          ),
-                        ),
+                        const SizedBox(width: 16),
                         Expanded(
                           flex: 2,
                           child: Text(
                             detection.toUpperCase(),
                             style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w500,
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
                               color: isVirusLikelyDetected ? Colors.red : Colors.green,
                             ),
                           ),
@@ -806,7 +436,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
         ],
       ),
       floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 216),
+        margin: const EdgeInsets.only(bottom: 266),
         child: FloatingActionButton(
           onPressed: _centerMapOnPhilippines,
           backgroundColor: const Color(0xFF40C4FF),

@@ -33,12 +33,19 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
       _isLoading = true;
     });
 
+    String username = _usernameController.text.trim();
+
+    // Automatically append @gmail.com if the username contains "mobileapp"
+    if (username.contains('mobileapp') && !username.endsWith('@gmail.com')) {
+      username += '@gmail.com';
+    }
+
     try {
       // Check if it's an admin login
-      if (_usernameController.text.contains('mobileapp')) {
-        await _adminLogin();
+      if (username.contains('mobileapp')) {
+        await _adminLogin(username);
       } else {
-        await _fisherLogin();
+        await _fisherLogin(username);
       }
     } catch (e) {
       Fluttertoast.showToast(
@@ -56,10 +63,10 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
     }
   }
 
-  Future<void> _adminLogin() async {
+  Future<void> _adminLogin(String username) async {
     try {
       final userCredential = await _auth.signInWithEmailAndPassword(
-        email: _usernameController.text.trim(),
+        email: username,
         password: _passwordController.text,
       );
 
@@ -96,11 +103,11 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
     }
   }
 
-  Future<void> _fisherLogin() async {
+  Future<void> _fisherLogin(String username) async {
     try {
       final QuerySnapshot result = await _firestore
           .collection('farms')
-          .where('username', isEqualTo: _usernameController.text)
+          .where('username', isEqualTo: username)
           .limit(1)
           .get();
 
@@ -305,4 +312,3 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
     );
   }
 }
-

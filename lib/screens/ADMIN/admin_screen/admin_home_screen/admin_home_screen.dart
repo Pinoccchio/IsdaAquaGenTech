@@ -3,6 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:isda_aqua_gentech/widgets/notification_badge.dart';
 import 'dart:io';
+import '../admin_message_screen/admin_message_screen.dart';
 import '../fish_farm_locations/farm_details_screen.dart';
 import 'admin_notification_screen.dart';
 
@@ -145,6 +146,15 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
                 ),
               ],
             ),
+            IconButton(
+              icon: const Icon(Icons.message, color: Colors.black),
+              onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const AdminMessageScreen()),
+                );
+              },
+            ),
           ],
         ),
         body: Column(
@@ -281,3 +291,4 @@ class _AdminHomeScreenState extends State<AdminHomeScreen> {
     );
   }
 }
+
