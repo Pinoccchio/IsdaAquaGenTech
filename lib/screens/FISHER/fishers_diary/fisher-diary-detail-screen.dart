@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'package:fluttertoast/fluttertoast.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FisherDiaryDetailScreen extends StatefulWidget {
   final String farmId;
@@ -43,9 +44,50 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
   final Color _textColor = Colors.black87;
   List<int> _allWeeks = [];
 
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'WEEK': 'LINGGO',
+      'Current Week': 'Kasalukuyang Linggo',
+      'AVERAGE BODY WEIGHT': 'KARANIWANG TIMBANG',
+      'AVERAGE BODY LENGTH': 'KARANIWANG HABA',
+      '% SURVIVAL': '% NABUBUHAY',
+      'WATER TEMPERATURE': 'TEMPERATURA NG TUBIG',
+      'pH LEVEL': 'ANTAS NG pH',
+      'SALINITY': 'ALAT',
+      'DISSOLVED OXYGEN': 'NALUSAW NA OXYGEN',
+      'TURBIDITY': 'KALABUAN',
+      'NITRITE': 'NITRITE',
+      'AMMONIA': 'AMMONYA',
+      'SAVE': 'I-SAVE',
+      'Data saved successfully': 'Matagumpay na na-save ang data',
+      'Error saving data': 'May error sa pag-save ng data',
+      'Cannot save data for future weeks': 'Hindi pwedeng i-save ang data para sa mga susunod na linggo',
+    },
+    'Bisaya': {
+      'WEEK': 'SEMANA',
+      'Current Week': 'Kasamtangang Semana',
+      'AVERAGE BODY WEIGHT': 'AVERAGE NGA GIBUG-ATON',
+      'AVERAGE BODY LENGTH': 'AVERAGE NGA GITAS-ON',
+      '% SURVIVAL': '% NABUHI',
+      'WATER TEMPERATURE': 'TEMPERATURA SA TUBIG',
+      'pH LEVEL': 'LEBEL SA pH',
+      'SALINITY': 'KAPARAT',
+      'DISSOLVED OXYGEN': 'NATUNAW NGA OXYGEN',
+      'TURBIDITY': 'KABULINGON',
+      'NITRITE': 'NITRITE',
+      'AMMONIA': 'AMMONYA',
+      'SAVE': 'I-SAVE',
+      'Data saved successfully': 'Malampuson nga na-save ang data',
+      'Error saving data': 'Naay sayop sa pag-save sa data',
+      'Cannot save data for future weeks': 'Dili pwede i-save ang data para sa umaabot nga mga semana',
+    },
+  };
+
   @override
   void initState() {
     super.initState();
+    _loadLanguagePreference();
     _calculateWeeks();
     _loadWeekData();
   }
@@ -63,6 +105,20 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
     _nitriteController.dispose();
     _ammoniaController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
   }
 
   void _calculateWeeks() {
@@ -127,7 +183,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
   Future<void> _saveWeekData() async {
     if (!_isWeekEditable(_selectedWeek)) {
       Fluttertoast.showToast(
-        msg: "Cannot save data for future weeks",
+        msg: _getTranslatedText("Cannot save data for future weeks"),
         backgroundColor: Colors.red,
         textColor: Colors.white,
       );
@@ -157,7 +213,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
       });
 
       Fluttertoast.showToast(
-          msg: "Data saved successfully",
+          msg: _getTranslatedText("Data saved successfully"),
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
@@ -170,7 +226,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
     } catch (e) {
       print('Error saving week data: $e');
       Fluttertoast.showToast(
-          msg: "Error saving data",
+          msg: _getTranslatedText("Error saving data"),
           toastLength: Toast.LENGTH_SHORT,
           gravity: ToastGravity.BOTTOM,
           timeInSecForIosWeb: 1,
@@ -186,7 +242,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          _getTranslatedText(label),
           style: TextStyle(
             fontSize: 12,
             color: _textColor.withOpacity(0.6),
@@ -250,7 +306,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
                   return DropdownMenuItem<int>(
                     value: week,
                     child: Text(
-                      'WEEK $week',
+                      '${_getTranslatedText("WEEK")} $week',
                       style: TextStyle(
                         color: _isWeekEditable(week) ? _textColor : Colors.grey,
                         fontWeight: _isWeekEditable(week) ? FontWeight.w600 : FontWeight.normal,
@@ -294,7 +350,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  'Current Week: $_currentWeek',
+                  '${_getTranslatedText("Current Week")}: $_currentWeek',
                   style: TextStyle(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -302,16 +358,16 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
                   ),
                 ),
                 const SizedBox(height: 16),
-                _buildInputField('AVERAGE BODY WEIGHT:', _bodyWeightController),
-                _buildInputField('AVERAGE BODY LENGTH:', _bodyLengthController),
-                _buildInputField('% SURVIVAL:', _survivalController, suffix: '%'),
-                _buildInputField('WATER TEMPERATURE (°C):', _waterTempController, suffix: '°C'),
-                _buildInputField('pH LEVEL:', _phLevelController),
-                _buildInputField('SALINITY (ppt):', _salinityController, suffix: 'ppt'),
-                _buildInputField('DISSOLVED OXYGEN (ppm):', _dissolvedOxygenController, suffix: 'ppm'),
-                _buildInputField('TURBIDITY (%):', _turbidityController, suffix: '%'),
-                _buildInputField('NITRITE (ppm):', _nitriteController, suffix: 'ppm'),
-                _buildInputField('AMMONIA (ppm):', _ammoniaController, suffix: 'ppm'),
+                _buildInputField('AVERAGE BODY WEIGHT', _bodyWeightController),
+                _buildInputField('AVERAGE BODY LENGTH', _bodyLengthController),
+                _buildInputField('% SURVIVAL', _survivalController, suffix: '%'),
+                _buildInputField('WATER TEMPERATURE', _waterTempController, suffix: '°C'),
+                _buildInputField('pH LEVEL', _phLevelController),
+                _buildInputField('SALINITY', _salinityController, suffix: 'ppt'),
+                _buildInputField('DISSOLVED OXYGEN', _dissolvedOxygenController, suffix: 'ppm'),
+                _buildInputField('TURBIDITY', _turbidityController, suffix: '%'),
+                _buildInputField('NITRITE', _nitriteController, suffix: 'ppm'),
+                _buildInputField('AMMONIA', _ammoniaController, suffix: 'ppm'),
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
@@ -324,9 +380,9 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
                         borderRadius: BorderRadius.circular(8),
                       ),
                     ),
-                    child: const Text(
-                      'SAVE',
-                      style: TextStyle(
+                    child: Text(
+                      _getTranslatedText('SAVE'),
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
                         color: Colors.white,
@@ -342,4 +398,3 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
     );
   }
 }
-

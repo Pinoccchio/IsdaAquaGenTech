@@ -36,7 +36,7 @@ class FisherHomeScreen extends StatefulWidget {
 
 class _FisherHomeScreenState extends State<FisherHomeScreen> {
   final String apiKey = 'de027726bde1251b15e2fb337b826f13';
-  final FlutterNewsService newsService = FlutterNewsService('6745d27895264a84af01fd5f5cf1bc09');
+  final FlutterNewsService newsService = FlutterNewsService('fe959ea9b7524994a32837395d1ddc43');
   Map<String, dynamic>? weatherData;
   List<Map<String, dynamic>>? forecast;
   Position? currentPosition;
@@ -536,7 +536,6 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
 
     try {
       final keywords = [
-        /*
         'aquaculture',
         'fishing',
         'fish disease',
@@ -557,9 +556,34 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
         'fish breeding',
         'fish processing',
         'fish export',
-
-         */
-        //'fish'
+        'Philippines weather',
+        'PAGASA update',
+        'Philippines sea condition',
+        'Philippines wind forecast',
+        'Philippines wave height',
+        'Philippines tidal info',
+        'Philippines fishing weather',
+        'Philippines typhoon update',
+        'Philippines bagyo alert',
+        'Philippines storm signal',
+        'Philippines cyclone warning',
+        'PAGASA LPA',
+        'Philippines storm surge',
+        'Philippines gale warning',
+        'Philippines Signal No. 1',
+        'Philippines Signal No. 2',
+        'Philippines Signal No. 3',
+        'Philippines rough seas',
+        'Philippines high tide',
+        'PAGASA red warning',
+        'Philippines no sailing',
+        'Philippines fisherman alert',
+        'Philippines Coast Guard',
+        'PAGASA advisory',
+        'Philippines rescue ops',
+        'Philippines evacuation',
+        'Philippines fishing ban',
+        'Philippines emergency hotline',
       ];
 
       List<Article> newArticles = [];

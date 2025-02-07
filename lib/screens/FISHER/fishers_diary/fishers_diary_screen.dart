@@ -3,6 +3,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'fisher-diary-detail-screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FishersDiaryScreen extends StatefulWidget {
   final String farmId;
@@ -21,15 +22,64 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
   DateTime? _harvestDate;
   List<Map<String, dynamic>> _cageData = [];
   Set<String> _availableOrganisms = {};
+  String _selectedLanguage = 'English';
 
   final Color _primaryColor = const Color(0xFF23B4BC);
   final Color _secondaryColor = Colors.white;
   final Color _textColor = Colors.black87;
   final Color _borderColor = const Color(0xFF40C4FF);
 
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'Farmer\'s Diary': 'Talaarawan ng Magsasaka',
+      'CAGE': 'CAGE',
+      'ORGANISM': 'ORGANISMO',
+      'START DATE': 'SIMULA',
+      'HARVEST DATE': 'PAG-ANI',
+      'NO DATA YET': 'WALA PANG DATOS',
+      'Select Cage': 'Pumili ng Kulungan',
+      'Select Organism': 'Pumili ng Organismo',
+      'Select Date': 'Pumili ng Petsa',
+      'SAVE': 'I-SAVE',
+      'Delete Entry': 'Burahin ang Entry',
+      'Are you sure you want to delete this diary entry?': 'Sigurado ka bang gusto mong burahin ang entry na ito?',
+      'Cancel': 'Kanselahin',
+      'Delete': 'Burahin',
+      'Mark as Harvested': 'Markahan bilang Inani',
+      'Are you sure you want to mark this entry as harvested?': 'Sigurado ka bang gusto mong markahan ang entry na ito bilang inani?',
+      'Diary entry deleted successfully': 'Matagumpay na nabura ang entry sa talaarawan',
+      'Diary entry marked as harvested': 'Namarkahan ang entry sa talaarawan bilang inani',
+      'Diary entry added successfully': 'Matagumpay na naidagdag ang entry sa talaarawan',
+      'Error saving diary entry': 'May error sa pag-save ng entry sa talaarawan',
+    },
+    'Bisaya': {
+      'Farmer\'s Diary': 'Talaan sa Mag-uuma',
+      'CAGE': 'CAGE',
+      'ORGANISM': 'ORGANISMO',
+      'START DATE': 'PAGSUGOD',
+      'HARVEST DATE': 'PAG-ANI',
+      'NO DATA YET': 'WALAY DATA PA',
+      'Select Cage': 'Pilia ang Tangkal',
+      'Select Organism': 'Pilia ang Organismo',
+      'Select Date': 'Pilia ang Petsa',
+      'SAVE': 'I-SAVE',
+      'Delete Entry': 'Papasa ang Entry',
+      'Are you sure you want to delete this diary entry?': 'Sigurado ka nga gusto nimo papason kini nga entry?',
+      'Cancel': 'Kanselahon',
+      'Delete': 'Papason',
+      'Mark as Harvested': 'Markahi og Ani na',
+      'Are you sure you want to mark this entry as harvested?': 'Sigurado ka nga gusto nimo markahan kini nga entry og ani na?',
+      'Diary entry deleted successfully': 'Malampuson nga napapas ang entry sa talaan',
+      'Diary entry marked as harvested': 'Namarkahan ang entry sa talaan og ani na',
+      'Diary entry added successfully': 'Malampuson nga nadugang ang entry sa talaan',
+      'Error saving diary entry': 'Naay sayop sa pag-save sa entry sa talaan',
+    },
+  };
+
   @override
   void initState() {
     super.initState();
+    _loadLanguagePreference();
     _loadFarmData();
   }
 
@@ -37,6 +87,20 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
   void dispose() {
     _cageNoController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
   }
 
   Future<void> _loadFarmData() async {
@@ -75,16 +139,15 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
     }
   }
 
-
   Widget _buildTableHeader() {
-    return Container(
-      padding: const EdgeInsets.symmetric(vertical: 8),
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
       child: Row(
         children: [
           Expanded(
             flex: 1,
             child: Text(
-              'CAGE',
+              _getTranslatedText('CAGE'),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -96,7 +159,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'ORGANISM',
+              _getTranslatedText('ORGANISM'),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -108,7 +171,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'START DATE',
+              _getTranslatedText('START DATE'),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -120,7 +183,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'HARVEST DATE',
+              _getTranslatedText('HARVEST DATE'),
               style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
@@ -233,7 +296,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'CAGE',
+                      _getTranslatedText('CAGE'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -258,7 +321,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                         ),
                         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                       ),
-                      hint: Text('Select Cage', style: TextStyle(color: _textColor.withOpacity(0.5))),
+                      hint: Text(_getTranslatedText('Select Cage'), style: TextStyle(color: _textColor.withOpacity(0.5))),
                       items: _cageData.map((cage) {
                         return DropdownMenuItem<String>(
                           value: cage['cageNumber'].toString(),
@@ -275,7 +338,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                     const SizedBox(height: 16),
 
                     Text(
-                      'ORGANISM',
+                      _getTranslatedText('ORGANISM'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -294,7 +357,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                         value: _selectedOrganism,
                         isExpanded: true,
                         underline: Container(),
-                        hint: Text('Select Organism', style: TextStyle(color: _textColor.withOpacity(0.5))),
+                        hint: Text(_getTranslatedText('Select Organism'), style: TextStyle(color: _textColor.withOpacity(0.5))),
                         items: availableOrganisms.map((String organism) {
                           return DropdownMenuItem<String>(
                             value: organism,
@@ -312,7 +375,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                     const SizedBox(height: 16),
 
                     Text(
-                      'START DATE',
+                      _getTranslatedText('START DATE'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -334,7 +397,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                           children: [
                             Text(
                               _startDate == null
-                                  ? 'Select Date'
+                                  ? _getTranslatedText('Select Date')
                                   : DateFormat('MM/dd/yyyy').format(_startDate!),
                               style: TextStyle(
                                 color: _startDate == null ? _textColor.withOpacity(0.5) : _textColor,
@@ -348,7 +411,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                     const SizedBox(height: 16),
 
                     Text(
-                      'HARVEST DATE',
+                      _getTranslatedText('HARVEST DATE'),
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
@@ -368,7 +431,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                         children: [
                           Text(
                             _harvestDate == null
-                                ? 'Select start date and organism first'
+                                ? _getTranslatedText('Select start date and organism first')
                                 : DateFormat('MM/dd/yyyy').format(_harvestDate!),
                             style: TextStyle(color: _harvestDate == null ? _textColor.withOpacity(0.5) : _textColor),
                           ),
@@ -408,15 +471,15 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                               Navigator.pop(context);
                               ScaffoldMessenger.of(context).showSnackBar(
                                 SnackBar(
-                                  content: const Text('Diary entry added successfully'),
+                                  content: Text(_getTranslatedText('Diary entry added successfully')),
                                   backgroundColor: _primaryColor,
                                 ),
                               );
                             } catch (e) {
                               print('Error saving diary entry: $e');
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Error saving diary entry'),
+                                SnackBar(
+                                  content: Text(_getTranslatedText('Error saving diary entry')),
                                   backgroundColor: Colors.red,
                                 ),
                               );
@@ -430,9 +493,9 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                             borderRadius: BorderRadius.circular(24),
                           ),
                         ),
-                        child: const Text(
-                          'SAVE',
-                          style: TextStyle(
+                        child: Text(
+                          _getTranslatedText('SAVE'),
+                          style: const TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.bold,
                             color: Colors.white,
@@ -474,7 +537,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                _farmName,
+                _getTranslatedText(_farmName),
                 style: TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.w500,
@@ -505,7 +568,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
                     return Center(
                       child: Text(
-                        'NO DATA YET',
+                        _getTranslatedText('NO DATA YET'),
                         style: TextStyle(
                           fontSize: 16,
                           color: _textColor.withOpacity(0.5),
@@ -595,13 +658,13 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                     icon: Icon(Icons.more_vert, color: _textColor),
                                     itemBuilder: (context) => [
                                       if (data['isHarvested'] != true)
-                                        const PopupMenuItem(
+                                        PopupMenuItem(
                                           value: 'harvest',
-                                          child: Text('Done Harvest'),
+                                          child: Text(_getTranslatedText('Mark as Harvested')),
                                         ),
-                                      const PopupMenuItem(
+                                      PopupMenuItem(
                                         value: 'delete',
-                                        child: Text('Delete'),
+                                        child: Text(_getTranslatedText('Delete')),
                                       ),
                                     ],
                                     onSelected: (value) async {
@@ -634,7 +697,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: <Widget>[
                                                     Text(
-                                                      'Delete Entry',
+                                                      _getTranslatedText('Delete Entry'),
                                                       style: TextStyle(
                                                         fontSize: 22,
                                                         fontWeight: FontWeight.w600,
@@ -642,7 +705,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                     ),
                                                     SizedBox(height: 15),
                                                     Text(
-                                                      'Are you sure you want to delete this diary entry?',
+                                                      _getTranslatedText('Are you sure you want to delete this diary entry?'),
                                                       style: TextStyle(fontSize: 16),
                                                       textAlign: TextAlign.center,
                                                     ),
@@ -653,14 +716,14 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                         TextButton(
                                                           onPressed: () => Navigator.of(context).pop(false),
                                                           child: Text(
-                                                            'Cancel',
+                                                            _getTranslatedText('Cancel'),
                                                             style: TextStyle(color: Colors.grey[600]),
                                                           ),
                                                         ),
                                                         SizedBox(width: 20),
                                                         ElevatedButton(
                                                           onPressed: () => Navigator.of(context).pop(true),
-                                                          child: Text('Delete', style: TextStyle(color: Colors.white)),
+                                                          child: Text(_getTranslatedText('Delete'), style: TextStyle(color: Colors.white)),
                                                           style: ElevatedButton.styleFrom(
                                                             backgroundColor: Colors.red,
                                                             shape: RoundedRectangleBorder(
@@ -686,8 +749,8 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                               .delete();
 
                                           ScaffoldMessenger.of(context).showSnackBar(
-                                            const SnackBar(
-                                              content: Text('Diary entry deleted successfully'),
+                                            SnackBar(
+                                              content: Text(_getTranslatedText('Diary entry deleted successfully')),
                                               backgroundColor: Colors.red,
                                             ),
                                           );
@@ -721,7 +784,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                   mainAxisSize: MainAxisSize.min,
                                                   children: <Widget>[
                                                     Text(
-                                                      'Mark as Harvested',
+                                                      _getTranslatedText('Mark as Harvested'),
                                                       style: TextStyle(
                                                         fontSize: 22,
                                                         fontWeight: FontWeight.w600,
@@ -729,7 +792,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                     ),
                                                     SizedBox(height: 15),
                                                     Text(
-                                                      'Are you sure you want to mark this entry as harvested?',
+                                                      _getTranslatedText('Are you sure you want to mark this entry as harvested?'),
                                                       style: TextStyle(fontSize: 16),
                                                       textAlign: TextAlign.center,
                                                     ),
@@ -740,14 +803,14 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
                                                         TextButton(
                                                           onPressed: () => Navigator.of(context).pop(false),
                                                           child: Text(
-                                                            'Cancel',
+                                                            _getTranslatedText('Cancel'),
                                                             style: TextStyle(color: Colors.grey[600]),
                                                           ),
                                                         ),
                                                         SizedBox(width: 20),
                                                         ElevatedButton(
                                                           onPressed: () => Navigator.of(context).pop(true),
-                                                          child: Text('Mark as Harvested', style: TextStyle(color: Colors.white)),
+                                                          child: Text(_getTranslatedText('Mark as Harvested'), style: TextStyle(color: Colors.white)),
                                                           style: ElevatedButton.styleFrom(
                                                             backgroundColor: _primaryColor,
                                                             shape: RoundedRectangleBorder(
@@ -774,7 +837,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
 
                                           ScaffoldMessenger.of(context).showSnackBar(
                                             SnackBar(
-                                              content: const Text('Diary entry marked as harvested'),
+                                              content: Text(_getTranslatedText('Diary entry marked as harvested')),
                                               backgroundColor: _primaryColor,
                                             ),
                                           );
@@ -806,4 +869,3 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
     );
   }
 }
-

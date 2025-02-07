@@ -6,6 +6,7 @@ import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../fisher_reports_screen/fisher_reports_screen.dart';
 import '../../fishers_diary/fishers_diary_screen.dart';
 import '../../tilapia_lake_virus_information_screen/tilapia_lake_virus_information_screen.dart';
@@ -34,6 +35,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   bool _hasNewReports = false;
   bool _hasNewAlerts = false;
   String _selectedLanguage = 'English';
+  FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
@@ -42,6 +44,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     _initializeLocationTracking();
     _checkForNewReportsAndAlerts();
     _loadLanguagePreference();
+    _initializeNotifications();
   }
 
   @override
@@ -49,6 +52,70 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     _locationTimer?.cancel();
     _positionStream?.cancel();
     super.dispose();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _checkAndScheduleNotifications(List<QueryDocumentSnapshot> diaryEntries) async {
+    for (var entry in diaryEntries) {
+      final startDate = (entry.data() as Map<String, dynamic>)['startDate'] as Timestamp;
+      final harvestDate = (entry.data() as Map<String, dynamic>)['harvestDate'] as Timestamp;
+      final now = DateTime.now();
+
+      if (now.isBefore(harvestDate.toDate())) {
+        int currentWeek = ((now.difference(startDate.toDate()).inDays) / 7).ceil();
+
+        // Ensure we start from week 1
+        if (currentWeek < 1) currentWeek = 1;
+
+        // Check if the current week's data is filled
+        final weekData = await FirebaseFirestore.instance
+            .collection('farms')
+            .doc(widget.farmId)
+            .collection('diary')
+            .doc(entry.id)
+            .collection('weekly_data')
+            .doc('week_$currentWeek')
+            .get();
+
+        if (!weekData.exists) {
+          // Schedule a notification for unfilled week
+          await _scheduleNotification(
+            'Weekly Update Reminder',
+            'Please fill in the data for Week $currentWeek of your diary entry.',
+            entry.id,
+            currentWeek,
+          );
+        }
+      }
+    }
+  }
+
+  Future<void> _scheduleNotification(String title, String body, String entryId, int week) async {
+    var androidPlatformChannelSpecifics = AndroidNotificationDetails(
+      'diary_reminders',
+      'Diary Reminders',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    var platformChannelSpecifics = NotificationDetails(
+      android: androidPlatformChannelSpecifics,
+    );
+
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      title,
+      body,
+      platformChannelSpecifics,
+      payload: 'diary_$entryId\_week_$week',
+    );
   }
 
   Future<void> _initializeLocationTracking() async {
@@ -251,7 +318,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         throw Exception('Could not launch $url');
       }
     } catch (e) {
-      // Show error dialog instead of throwing exception
       if (context.mounted) {
         showDialog(
           context: context,
@@ -440,10 +506,22 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
             ],
           ),
         ),
-        body: FisherHomeScreen(
-          openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-          farmId: widget.farmId,
-          selectedLanguage: _selectedLanguage,
+        body: StreamBuilder<QuerySnapshot>(
+          stream: FirebaseFirestore.instance
+              .collection('farms')
+              .doc(widget.farmId)
+              .collection('diary')
+              .snapshots(),
+          builder: (context, snapshot) {
+            if (snapshot.hasData) {
+              _checkAndScheduleNotifications(snapshot.data!.docs);
+            }
+            return FisherHomeScreen(
+              openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+              farmId: widget.farmId,
+              selectedLanguage: _selectedLanguage,
+            );
+          },
         ),
       ),
     );
@@ -497,4 +575,3 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     );
   }
 }
-

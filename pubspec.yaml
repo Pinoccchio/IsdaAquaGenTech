@@ -43,7 +43,6 @@ dependencies:
   device_info_plus: ^10.1.2
   open_file: ^3.5.4
   path: ^1.9.0
-  firebase_messaging: ^15.1.0
 
 
 dev_dependencies:

@@ -8,6 +8,7 @@ import 'admin_report_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:geocoding/geocoding.dart';
 import 'package:path/path.dart' as path;
+import 'package:share_plus/share_plus.dart';
 
 
 class AdminReportsScreen extends StatefulWidget {
@@ -71,10 +72,10 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
 
     try {
       final excelFile = excel.Excel.createExcel();
-      final shrimpLikelySheet = excelFile['Shrimp Likely Detected'];
-      final shrimpNotLikelySheet = excelFile['Shrimp Not Likely Detected'];
-      final tilapiaLikelySheet = excelFile['Tilapia Likely Detected'];
-      final tilapiaNotLikelySheet = excelFile['Tilapia Not Likely Detected'];
+      final shrimpLikelySheet = excelFile['Shrimp Disease Likely Detected'];
+      final shrimpNotLikelySheet = excelFile['Shrimp Disease Not Likely Detected'];
+      final tilapiaLikelySheet = excelFile['Tilapia Disease Likely Detected'];
+      final tilapiaNotLikelySheet = excelFile['Tilapia Disease Not Likely Detected'];
 
       // Add headers to all sheets
       final headers = ['Farm Name', 'Date', 'Detection', 'Location', 'Image URL', 'Owner Name', 'Contact Number', 'Feed Types'];
@@ -319,4 +320,3 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     );
   }
 }
-

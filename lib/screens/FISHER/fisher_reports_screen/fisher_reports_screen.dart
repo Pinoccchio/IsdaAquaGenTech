@@ -30,28 +30,28 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
   String _selectedLanguage = 'English';
   final Map<String, Map<String, String>> _translations = {
     'Filipino': {
-      'REPORTS': 'MGA ULAT',
-      'No reports found.': 'Walang nahanap na mga ulat.',
-      'STATUS': 'KATAYUAN',
-      'FARM NAME': 'PANGALAN NG SAKAHAN',
+      'REPORTS': 'ULAT',
+      'No reports found.': 'WALANG ULAT.',
+      'STATUS': 'STATUS',
+      'FARM NAME': 'ISDAAN',
       'LOCATION': 'LOKASYON',
-      'DATE/TIME': 'PETSA/ORAS',
+      'DATE/TIME': 'PETSA',
       'DETECTION': 'PAGTUKLAS',
-      'Unknown Farm': 'Hindi Kilalang Sakahan',
-      'Location unavailable': 'Hindi magamit ang lokasyon',
-      'Fetching location...': 'Kinukuha ang lokasyon...',
+      'Unknown Farm': 'DI-KILALA',
+      'Location unavailable': 'WALANG LUGAR',
+      'Fetching location...': 'KUMUKUHA...',
     },
     'Bisaya': {
-      'REPORTS': 'MGA REPORT',
-      'No reports found.': 'Walay nakitang mga report.',
-      'STATUS': 'KAHIMTANG',
-      'FARM NAME': 'NGALAN SA UMAHAN',
+      'REPORTS': 'REPORT',
+      'No reports found.': 'WALAY REPORT.',
+      'STATUS': 'STATUS',
+      'FARM NAME': 'UMAHAN',
       'LOCATION': 'LOKASYON',
-      'DATE/TIME': 'PETSA/ORAS',
-      'DETECTION': 'PAGPANGITA',
-      'Unknown Farm': 'Wala Mailhing Umahan',
-      'Location unavailable': 'Dili magamit ang lokasyon',
-      'Fetching location...': 'Gikuha ang lokasyon...',
+      'DATE/TIME': 'PETSA',
+      'DETECTION': 'DETEKSYON',
+      'Unknown Farm': 'WALA MAILHI',
+      'Location unavailable': 'WAY DAPIT',
+      'Fetching location...': 'GAKUHA...',
     },
   };
 
@@ -137,13 +137,11 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
   }
 
   void _navigateToDetail(BuildContext context, DocumentSnapshot report) async {
-    // Mark only this specific report as read
     await FirebaseFirestore.instance
         .collection('reports')
         .doc(report.id)
         .update({'isNew': false});
 
-    // Ensure the report data is not null before navigating
     if (report.data() != null) {
       Navigator.push(
         context,
@@ -152,7 +150,6 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
         ),
       );
     } else {
-      // Show an error message if the report data is null
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Error: Report data is not available')),
       );
@@ -444,4 +441,3 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     super.dispose();
   }
 }
-
