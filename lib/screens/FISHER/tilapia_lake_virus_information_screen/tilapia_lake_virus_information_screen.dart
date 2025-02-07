@@ -8,7 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../constants/app_colors.dart';
 
 class TilapiaLakeVirusInformationScreen extends StatefulWidget {
-  const TilapiaLakeVirusInformationScreen({Key? key}) : super(key: key);
+  const TilapiaLakeVirusInformationScreen({super.key});
 
   @override
   _TilapiaLakeVirusInformationScreenState createState() =>
@@ -69,8 +69,8 @@ class _TilapiaLakeVirusInformationScreenState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.error_outline, color: Colors.red),
             SizedBox(width: 8),
             Text('Error Loading PDF'),
@@ -133,7 +133,7 @@ class _TilapiaLakeVirusInformationScreenState
           const SizedBox(height: 24),
 
           // Title with icon
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -141,8 +141,8 @@ class _TilapiaLakeVirusInformationScreenState
                 color: AppColors.primary,
                 size: 24,
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'TILAPIA LAKE VIRUS',
                 style: TextStyle(
                   fontSize: 20,

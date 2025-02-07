@@ -2,14 +2,14 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isda_aqua_gentech/screens/fisherOrAdminLoginScreen/fisherOrAdminLoginScreen.dart';
-import '../admin_alerts_screen/admin_alerts_screen.dart';
+import '../admin_announcements_manager/admin_announcements_screen.dart';
 import '../admin_reports_screen/admin_reports_screen.dart';
 import '../fish_farm_locations/fish_farm_location.dart';
 import '../regisiter_new_farm_screen/register_new_farm_screen.dart';
-import 'admin_home_screen.dart';
+import './admin_home_screen.dart';
 
 class AdminHomeContainerScreen extends StatefulWidget {
-  const AdminHomeContainerScreen({Key? key}) : super(key: key);
+  const AdminHomeContainerScreen({super.key});
 
   @override
   _AdminHomeContainerScreenState createState() => _AdminHomeContainerScreenState();
@@ -19,6 +19,14 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
   final GlobalKey<ScaffoldState> _scaffoldKey = GlobalKey<ScaffoldState>();
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  bool _hasNewReports = false;
+  final bool _hasNewAlerts = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _listenForNewReports();
+  }
 
   Future<void> _signOut() async {
     await _auth.signOut();
@@ -37,6 +45,20 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
       return userDoc.data() as Map<String, dynamic>;
     }
     return {};
+  }
+
+  void _listenForNewReports() {
+    FirebaseFirestore.instance
+        .collection('reports')
+        .where('isNewForAdmin', isEqualTo: true)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _hasNewReports = snapshot.docs.isNotEmpty;
+        });
+      }
+    });
   }
 
   @override
@@ -97,10 +119,9 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                         ),
                       ),
                       const SizedBox(height: 10),
-                      Text(
-                        //userName
+                      const Text(
                         "ADMIN",
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
@@ -119,28 +140,28 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => FishFarmLocationScreen()),
+                          MaterialPageRoute(builder: (context) => const FishFarmLocationScreen()),
                         );
-                      }),
-                      _buildMenuItem('ALERTS', onTap: () {
+                      }, showBadge: _hasNewReports),
+                      _buildMenuItem('POST ANNOUNCEMENTS', onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => AdminAlertsScreen()),
+                          MaterialPageRoute(builder: (context) => const AdminAnnouncementsScreen()),
                         );
                       }),
                       _buildMenuItem('REPORTS', onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => AdminReportsScreen()),
+                          MaterialPageRoute(builder: (context) => const AdminReportsScreen()),
                         );
-                      }),
+                      }, showBadge: _hasNewReports),
                       _buildMenuItem('REGISTER NEW FARM', onTap: () {
                         Navigator.pop(context);
                         Navigator.push(
                           context,
-                          MaterialPageRoute(builder: (context) => RegisterNewFarmScreen()),
+                          MaterialPageRoute(builder: (context) => const RegisterNewFarmScreen()),
                         );
                       }),
                     ],
@@ -171,6 +192,7 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
     required VoidCallback onTap,
     bool showDivider = true,
     IconData? icon,
+    bool showBadge = false,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -183,15 +205,26 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                 Icon(icon, size: 20),
                 const SizedBox(width: 12),
               ],
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
+              if (showBadge)
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
             ],
           ),
           onTap: onTap,

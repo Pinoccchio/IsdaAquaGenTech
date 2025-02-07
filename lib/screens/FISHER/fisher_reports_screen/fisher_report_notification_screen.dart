@@ -2,18 +2,78 @@ import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'notification_alert_detail_screen.dart';
+import 'notification_manager.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-class ReportNotificationScreen extends StatelessWidget {
+class ReportNotificationScreen extends StatefulWidget {
   final String farmId;
 
-  const ReportNotificationScreen({Key? key, required this.farmId}) : super(key: key);
+  const ReportNotificationScreen({super.key, required this.farmId});
+
+  @override
+  _ReportNotificationScreenState createState() => _ReportNotificationScreenState();
+}
+
+class _ReportNotificationScreenState extends State<ReportNotificationScreen> {
+  final NotificationManager _notificationManager = NotificationManager();
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'Notifications Alerts': 'Mga Alerto sa Notipikasyon',
+      'No notifications yet': 'Wala pang mga notipikasyon',
+      'Urgent': 'Agaran',
+      'Normal': 'Normal',
+      'Location': 'Lokasyon',
+      'Owner': 'May-ari',
+      'Timestamp': 'Oras',
+      'New': 'Bago',
+    },
+    'Bisaya': {
+      'Notifications Alerts': 'Mga Alerto sa Pahibalo',
+      'No notifications yet': 'Wala pay mga pahibalo',
+      'Urgent': 'Dinalian',
+      'Normal': 'Normal',
+      'Location': 'Lokasyon',
+      'Owner': 'Tag-iya',
+      'Timestamp': 'Oras',
+      'New': 'Bag-o',
+    },
+  };
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    _notificationManager.resetBadgeCount();
+    _loadLanguagePreference();
+  }
 
   Stream<QuerySnapshot> _getAlertsStream() {
     return FirebaseFirestore.instance
         .collection('alerts')
-        .where('farmId', isEqualTo: farmId)
+        .where('farmId', isEqualTo: widget.farmId)
         .orderBy('timestamp', descending: true)
         .snapshots();
+  }
+
+  Future<void> _markAlertAsRead(String alertId) async {
+    await FirebaseFirestore.instance
+        .collection('alerts')
+        .doc(alertId)
+        .update({'isNew': false});
   }
 
   @override
@@ -40,8 +100,8 @@ class ReportNotificationScreen extends StatelessWidget {
             Padding(
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
               child: Text(
-                'Notifications Alerts',
-                style: TextStyle(
+                _getTranslatedText('Notifications Alerts'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   color: Color(0xFF40C4FF),
@@ -70,12 +130,12 @@ class ReportNotificationScreen extends StatelessWidget {
                           Icon(
                             Icons.notifications_off_outlined,
                             size: 64,
-                            color: Color(0xFF40C4FF).withOpacity(0.5),
+                            color: const Color(0xFF40C4FF).withOpacity(0.5),
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            'No notifications yet',
-                            style: TextStyle(
+                            _getTranslatedText('No notifications yet'),
+                            style: const TextStyle(
                               fontSize: 18,
                               color: Color(0xFF40C4FF),
                               fontWeight: FontWeight.w500,
@@ -91,27 +151,31 @@ class ReportNotificationScreen extends StatelessWidget {
                     itemCount: alerts.length,
                     separatorBuilder: (context, index) => const SizedBox(height: 16),
                     itemBuilder: (context, index) {
-                      final alert = alerts[index].data() as Map<String, dynamic>;
+                      final alertDoc = alerts[index];
+                      final alert = alertDoc.data() as Map<String, dynamic>;
+                      final alertId = alertDoc.id;
                       final detection = alert['detection'] as String;
                       final timestamp = alert['timestamp'] as Timestamp;
                       final formattedTimestamp = DateFormat('MMM d, y h:mm a').format(timestamp.toDate());
                       final requiresImmediateAction = alert['requiresImmediateAction'] as bool;
+                      final isNew = alert['isNew'] as bool? ?? false;
 
                       return GestureDetector(
-                        onTap: () {
+                        onTap: () async {
+                          await _markAlertAsRead(alertId);
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) => NotificationAlertDetailScreen(alert: alert),
+                              builder: (context) => NotificationAlertDetailScreen(alert: alert, alertId: alertId),
                             ),
                           );
                         },
                         child: Container(
                           padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: isNew ? const Color(0xFF40C4FF).withOpacity(0.1) : Colors.white,
                             borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: Color(0xFF40C4FF).withOpacity(0.3)),
+                            border: Border.all(color: const Color(0xFF40C4FF).withOpacity(0.3)),
                             boxShadow: [
                               BoxShadow(
                                 color: Colors.black.withOpacity(0.05),
@@ -129,7 +193,7 @@ class ReportNotificationScreen extends StatelessWidget {
                                   Expanded(
                                     child: Text(
                                       alert['farmName'],
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 18,
                                         fontWeight: FontWeight.bold,
                                         color: Color(0xFF40C4FF),
@@ -143,7 +207,7 @@ class ReportNotificationScreen extends StatelessWidget {
                                       borderRadius: BorderRadius.circular(12),
                                     ),
                                     child: Text(
-                                      requiresImmediateAction ? 'Urgent' : 'Normal',
+                                      _getTranslatedText(requiresImmediateAction ? 'Urgent' : 'Normal'),
                                       style: TextStyle(
                                         fontSize: 12,
                                         fontWeight: FontWeight.bold,
@@ -164,7 +228,7 @@ class ReportNotificationScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Location: ${alert['locationDescription']}',
+                                '${_getTranslatedText('Location')}: ${alert['locationDescription']}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -172,7 +236,7 @@ class ReportNotificationScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 4),
                               Text(
-                                'Owner: ${alert['ownerFirstName']} ${alert['ownerLastName']}',
+                                '${_getTranslatedText('Owner')}: ${alert['ownerFirstName']} ${alert['ownerLastName']}',
                                 style: TextStyle(
                                   fontSize: 14,
                                   color: Colors.grey[600],
@@ -180,13 +244,30 @@ class ReportNotificationScreen extends StatelessWidget {
                               ),
                               const SizedBox(height: 8),
                               Text(
-                                'Timestamp: $formattedTimestamp',
+                                '${_getTranslatedText('Timestamp')}: $formattedTimestamp',
                                 style: TextStyle(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w500,
                                   color: Colors.grey[700],
                                 ),
                               ),
+                              if (isNew)
+                                Container(
+                                  margin: const EdgeInsets.only(top: 8),
+                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF40C4FF),
+                                    borderRadius: BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    _getTranslatedText('New'),
+                                    style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),

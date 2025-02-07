@@ -8,7 +8,7 @@ import 'package:share_plus/share_plus.dart';
 import '../../../constants/app_colors.dart';
 
 class WhiteSpotSyndromeVirusInformationScreen extends StatefulWidget {
-  const WhiteSpotSyndromeVirusInformationScreen({Key? key}) : super(key: key);
+  const WhiteSpotSyndromeVirusInformationScreen({super.key});
 
   @override
   _WhiteSpotSyndromeVirusInformationScreenState createState() =>
@@ -69,8 +69,8 @@ class _WhiteSpotSyndromeVirusInformationScreenState
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(15),
         ),
-        title: Row(
-          children: const [
+        title: const Row(
+          children: [
             Icon(Icons.error_outline, color: AppColors.error),
             SizedBox(width: 8),
             Text('Error Loading PDF'),
@@ -133,7 +133,7 @@ class _WhiteSpotSyndromeVirusInformationScreenState
           const SizedBox(height: 24),
 
           // Title with icon
-          Row(
+          const Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(
@@ -141,8 +141,8 @@ class _WhiteSpotSyndromeVirusInformationScreenState
                 color: AppColors.primary,
                 size: 24,
               ),
-              const SizedBox(width: 12),
-              const Text(
+              SizedBox(width: 12),
+              Text(
                 'WHITE SPOT SYNDROME VIRUS',
                 style: TextStyle(
                   fontSize: 20,

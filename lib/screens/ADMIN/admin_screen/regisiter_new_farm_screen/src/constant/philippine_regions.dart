@@ -1,6 +1,6 @@
 import '../src.dart'; // Correct path to src.dart from the constant directory
 
-const philippineRegions = const [
+const philippineRegions = [
   Region(
     id: "01",
     regionName: "REGION I",

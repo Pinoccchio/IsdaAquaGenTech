@@ -13,6 +13,8 @@ import '../ADMIN/admin_screen/admin_home_screen/admin_container_screen.dart';
 import '../FISHER/fisher_screens/fisher_container_screen/fisher_container_screen.dart';
 
 class Splash extends StatefulWidget {
+  const Splash({super.key});
+
   @override
   _SplashState createState() => _SplashState();
 }
@@ -28,7 +30,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1500),
     );
     _fadeInAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(_animationController);
     _animationController.forward();
@@ -56,7 +58,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
 
   Future<void> _checkInternetAccess() async {
     try {
-      final response = await http.get(Uri.parse('https://www.google.com')).timeout(Duration(seconds: 5));
+      final response = await http.get(Uri.parse('https://www.google.com')).timeout(const Duration(seconds: 5));
       setState(() {
         isInternetAccessible = response.statusCode == 200;
       });
@@ -90,7 +92,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
         // User is an admin
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => AdminHomeContainerScreen(),
+            builder: (context) => const AdminHomeContainerScreen(),
           ),
         );
       } else {
@@ -115,7 +117,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
         // No user is signed in and no session found
         Navigator.of(context).pushReplacement(
           MaterialPageRoute(
-            builder: (context) => FisherOrAdminLoginScreen(),
+            builder: (context) => const FisherOrAdminLoginScreen(),
           ),
         );
       }
@@ -129,11 +131,11 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('No Connection', style: TextStyle(color: AppColors.text)),
-          content: Text('Please check your WiFi or cellular data connection.', style: TextStyle(color: AppColors.textLight)),
+          title: const Text('No Connection', style: TextStyle(color: AppColors.text)),
+          content: const Text('Please check your WiFi or cellular data connection.', style: TextStyle(color: AppColors.textLight)),
           actions: <Widget>[
             TextButton(
-              child: Text('Retry', style: TextStyle(color: AppColors.primary)),
+              child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _checkConnectivity();
@@ -152,11 +154,11 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
       builder: (BuildContext context) {
         return AlertDialog(
           shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-          title: Text('No Internet Access', style: TextStyle(color: AppColors.text)),
-          content: Text('You are connected to a network, but there is no internet access.', style: TextStyle(color: AppColors.textLight)),
+          title: const Text('No Internet Access', style: TextStyle(color: AppColors.text)),
+          content: const Text('You are connected to a network, but there is no internet access.', style: TextStyle(color: AppColors.textLight)),
           actions: <Widget>[
             TextButton(
-              child: Text('Retry', style: TextStyle(color: AppColors.primary)),
+              child: const Text('Retry', style: TextStyle(color: AppColors.primary)),
               onPressed: () {
                 Navigator.of(context).pop();
                 _checkConnectivity();
@@ -175,7 +177,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
       body: SafeArea(
         child: FadeTransition(
           opacity: _fadeInAnimation,
-          child: Container(
+          child: SizedBox(
             width: double.infinity,
             height: double.infinity,
             child: Stack(
@@ -192,7 +194,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
                         fit: BoxFit.contain,
                       ),
                     ),
-                    SizedBox(height: 40),
+                    const SizedBox(height: 40),
                     _buildConnectivityStatus(),
                   ],
                 ),
@@ -235,7 +237,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
     }
 
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       decoration: BoxDecoration(
         color: color.withOpacity(0.1),
         borderRadius: BorderRadius.circular(20),
@@ -244,7 +246,7 @@ class _SplashState extends State<Splash> with SingleTickerProviderStateMixin {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, color: color),
-          SizedBox(width: 8),
+          const SizedBox(width: 8),
           Text(
             message,
             style: TextStyle(color: color, fontWeight: FontWeight.bold),

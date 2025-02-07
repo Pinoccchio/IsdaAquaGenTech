@@ -1,31 +1,133 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:geocoding/geocoding.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
-class AdminReportDetailScreen extends StatelessWidget {
-  final String alertId;
+class AdminReportDetailScreen extends StatefulWidget {
+  final String reportId;
 
   const AdminReportDetailScreen({
-    Key? key,
-    required this.alertId,
-  }) : super(key: key);
+    super.key,
+    required this.reportId,
+  });
 
-  void _showAlertDetails(BuildContext context, Map<String, dynamic> alert) {
+  @override
+  _AdminReportDetailScreenState createState() => _AdminReportDetailScreenState();
+}
+
+class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
+  String _locationDescription = 'Fetching location...';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadReportData();
+  }
+
+  Future<void> _loadReportData() async {
+    final reportDoc = await FirebaseFirestore.instance.collection('reports').doc(widget.reportId).get();
+    if (reportDoc.exists) {
+      final data = reportDoc.data() as Map<String, dynamic>;
+      _getLocationDescription(data);
+    }
+  }
+
+  Future<void> _getLocationDescription(Map<String, dynamic> reportData) async {
+    setState(() {
+      _locationDescription = 'Fetching location...';
+    });
+
+    if (reportData['realtime_location'] != null) {
+      final lat = reportData['realtime_location'][0];
+      final lng = reportData['realtime_location'][1];
+
+      try {
+        List<Placemark> placemarks = await placemarkFromCoordinates(lat, lng);
+        if (placemarks.isNotEmpty) {
+          Placemark place = placemarks[0];
+          setState(() {
+            _locationDescription = '${place.street}, ${place.locality}, ${place.administrativeArea}, ${place.country}';
+          });
+        } else {
+          setState(() {
+            _locationDescription = 'Location details not available';
+          });
+        }
+      } catch (e) {
+        print('Error fetching location details: $e');
+        setState(() {
+          _locationDescription = 'Error fetching location details';
+        });
+      }
+    } else {
+      setState(() {
+        _locationDescription = 'Location data not available';
+      });
+    }
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _showMessageAlert(BuildContext context, Map<String, dynamic> reportData) async {
+    final TextEditingController messageController = TextEditingController();
+    final detection = reportData['detection'] as String? ?? 'Unknown';
+    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+
+    await showDialog(
+      context: context,
+      builder: (BuildContext dialogContext) {
+        return Dialog(
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(16),
           ),
-          child: Container(
+          child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 const Text(
-                  'ALERT DETAILS',
+                  'REPLY',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -33,77 +135,38 @@ class AdminReportDetailScreen extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        alert['detection'],
-                        style: TextStyle(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: _getStatusColor(alert['detection']),
-                        ),
-                      ),
-                      const SizedBox(height: 12),
-                      Text(
-                        'Farm: ${alert['farmName']}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      Text(
-                        'Owner: ${alert['ownerFirstName']} ${alert['ownerLastName']}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Location: ${alert['locationDescription']}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 8),
-                      const SizedBox(height: 8),
-                      Text(
-                        'Timestamp: ${_formatTimestamp(alert['timestamp'])}',
-                        style: const TextStyle(fontSize: 14),
-                      ),
-                      const SizedBox(height: 16),
-                      if (alert['requiresImmediateAction'] == true)
-                        const Text(
-                          'NEED IMMEDIATE ACTION!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
-                          ),
-                        )
-                      else
-                        const Text(
-                          'CONTINUE MONITORING YOUR FARM AND REPORT ANY CHANGES IN FISH HEALTH.',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
-                          ),
-                        ),
-                    ],
+                TextField(
+                  controller: messageController,
+                  maxLines: 5,
+                  decoration: InputDecoration(
+                    hintText: 'Enter your message here...',
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF40C4FF)),
+                    ),
+                    focusedBorder: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF40C4FF), width: 2),
+                    ),
                   ),
                 ),
                 const SizedBox(height: 20),
                 SizedBox(
                   width: double.infinity,
-                  child: TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    style: TextButton.styleFrom(
+                  child: ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(dialogContext).pop();
+                      _sendMessage(context, isVirusLikelyDetected, messageController.text, reportData);
+                    },
+                    style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF40C4FF),
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(24),
                       ),
                     ),
                     child: const Text(
-                      'CLOSE',
+                      'REPLY',
                       style: TextStyle(
                         color: Colors.white,
                         fontWeight: FontWeight.bold,
@@ -119,13 +182,72 @@ class AdminReportDetailScreen extends StatelessWidget {
     );
   }
 
-  Color _getStatusColor(String detection) {
-    if (detection.toUpperCase().contains('NOT LIKELY')) {
-      return Colors.green;
-    } else if (detection.toUpperCase().contains('LIKELY DETECTED')) {
-      return Colors.red;
+  Future<void> _sendMessage(BuildContext context, bool isVirusLikelyDetected, String message, Map<String, dynamic> reportData) async {
+    try {
+      await FirebaseFirestore.instance.collection('reports').doc(widget.reportId).update({'isNewForAdmin': false});
+      final farmId = reportData['farmId'];
+      if (farmId == null) {
+        throw Exception('Farm ID is null');
+      }
+
+      final detection = reportData['detection'] as String? ?? 'Unknown';
+
+      // Store the message
+      await FirebaseFirestore.instance
+          .collection('messages')
+          .add({
+        'reportId': widget.reportId,
+        'farmId': farmId,
+        'content': 'Report: $detection at ${reportData['farmName'] ?? 'Unknown Farm'}',
+        'replyMessage': message,
+        'timestamp': FieldValue.serverTimestamp(),
+        'status': 'unread',
+        'type': 'report',
+        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'detection': detection,
+        'farmName': reportData['farmName'] ?? 'Unknown',
+        'ownerFirstName': reportData['ownerFirstName'] ?? 'Unknown',
+        'ownerLastName': reportData['ownerLastName'] ?? 'Unknown',
+        'contactNumber': reportData['contactNumber'] ?? 'Unknown',
+        'feedTypes': reportData['feedTypes'] ?? 'Unknown',
+        'location': {
+          'latitude': reportData['realtime_location']?[0],
+          'longitude': reportData['realtime_location']?[1],
+          'description': _locationDescription,
+        },
+        'imageUrl': reportData['imageUrl'] ?? '',
+        'source': 'admin',
+        'isNew': true,
+        'isNewForAdmin': false,
+        'isNewMessageFromAdmin': true,
+      });
+
+      if (!context.mounted) return;
+
+      Navigator.of(context).pop(); // Close the dialog
+
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Message sent successfully'),
+          backgroundColor: Colors.green,
+        ),
+      );
+    } catch (e) {
+      if (!context.mounted) return;
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Failed to send message: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
     }
-    return Colors.grey;
+  }
+
+  Color _getStatusColor(String detection) {
+    return detection.toLowerCase().contains('not likely detected') ? Colors.green : Colors.red;
   }
 
   String _formatTimestamp(dynamic timestamp) {
@@ -197,7 +319,7 @@ class AdminReportDetailScreen extends StatelessWidget {
         centerTitle: true,
       ),
       body: FutureBuilder<DocumentSnapshot>(
-        future: FirebaseFirestore.instance.collection('alerts').doc(alertId).get(),
+        future: FirebaseFirestore.instance.collection('reports').doc(widget.reportId).get(),
         builder: (context, snapshot) {
           if (snapshot.connectionState == ConnectionState.waiting) {
             return const Center(child: CircularProgressIndicator());
@@ -208,13 +330,12 @@ class AdminReportDetailScreen extends StatelessWidget {
           }
 
           if (!snapshot.hasData || !snapshot.data!.exists) {
-            return const Center(child: Text('Alert not found'));
+            return const Center(child: Text('Report not found'));
           }
 
           final data = snapshot.data!.data() as Map<String, dynamic>;
           final detection = data['detection'] ?? 'Unknown';
           final organismName = _extractOrganismName(detection);
-          final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
           final imageUrl = data['imageUrl'] as String?;
           final timestamp = data['timestamp'] as Timestamp;
 
@@ -224,10 +345,10 @@ class AdminReportDetailScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Center(
+                  const Center(
                     child: Text(
                       'REPORT DETAILS',
-                      style: const TextStyle(
+                      style: TextStyle(
                         fontSize: 24,
                         fontWeight: FontWeight.bold,
                         letterSpacing: 1.2,
@@ -246,28 +367,32 @@ class AdminReportDetailScreen extends StatelessWidget {
                         ClipRRect(
                           borderRadius: BorderRadius.circular(7),
                           child: imageUrl != null
-                              ? Image.network(
-                            imageUrl,
-                            height: 200,
-                            width: double.infinity,
-                            fit: BoxFit.cover,
-                            loadingBuilder: (context, child, loadingProgress) {
-                              if (loadingProgress == null) return child;
-                              return Container(
+                              ? GestureDetector(
+                            onTap: () => _showFullScreenImage(context, imageUrl),
+                            child: CachedNetworkImage(
+                              imageUrl: imageUrl,
+                              height: 200,
+                              width: double.infinity,
+                              fit: BoxFit.cover,
+                              placeholder: (context, url) => Container(
                                 height: 200,
                                 width: double.infinity,
                                 color: Colors.grey[200],
-                                child: Center(
+                                child: const Center(
                                   child: CircularProgressIndicator(
-                                    value: loadingProgress.expectedTotalBytes != null
-                                        ? loadingProgress.cumulativeBytesLoaded /
-                                        loadingProgress.expectedTotalBytes!
-                                        : null,
-                                    color: const Color(0xFF40C4FF),
+                                    color: Color(0xFF40C4FF),
                                   ),
                                 ),
-                              );
-                            },
+                              ),
+                              errorWidget: (context, url, error) => Container(
+                                height: 200,
+                                width: double.infinity,
+                                color: Colors.grey[200],
+                                child: const Center(
+                                  child: Icon(Icons.error),
+                                ),
+                              ),
+                            ),
                           )
                               : Container(
                             height: 200,
@@ -325,12 +450,10 @@ class AdminReportDetailScreen extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                       decoration: BoxDecoration(
-                        color: isVirusLikelyDetected
-                            ? Colors.red.withOpacity(0.1)
-                            : Colors.green.withOpacity(0.1),
+                        color: _getStatusColor(detection).withOpacity(0.1),
                         borderRadius: BorderRadius.circular(20),
                         border: Border.all(
-                          color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                          color: _getStatusColor(detection),
                         ),
                       ),
                       child: Text(
@@ -338,7 +461,7 @@ class AdminReportDetailScreen extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
-                          color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                          color: _getStatusColor(detection),
                         ),
                       ),
                     ),
@@ -349,14 +472,12 @@ class AdminReportDetailScreen extends StatelessWidget {
                   _buildTextField('CONTACT NUMBER', data['contactNumber'] ?? ''),
                   _buildTextField('FEED TYPES', data['feedTypes'] ?? ''),
                   _buildTextField('DATE AND TIME REPORTED', _formatTimestamp(timestamp)),
-                  _buildTextField('LOCATION', data['locationDescription'] ?? ''),
+                  _buildTextField('LOCATION', _locationDescription),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
                     child: ElevatedButton(
-                      onPressed: () {
-                        _showAlertDetails(context, data);
-                      },
+                      onPressed: () => _showMessageAlert(context, data),
                       style: ElevatedButton.styleFrom(
                         backgroundColor: const Color(0xFF40C4FF),
                         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -365,7 +486,7 @@ class AdminReportDetailScreen extends StatelessWidget {
                         ),
                       ),
                       child: const Text(
-                        'VIEW ALERT',
+                        'REPLY',
                         style: TextStyle(
                           fontSize: 16,
                           fontWeight: FontWeight.bold,
@@ -383,5 +504,4 @@ class AdminReportDetailScreen extends StatelessWidget {
     );
   }
 }
-
 

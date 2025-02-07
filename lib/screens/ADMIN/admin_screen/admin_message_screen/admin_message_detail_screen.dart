@@ -7,15 +7,15 @@ class AdminMessageDetailScreen extends StatelessWidget {
   final String farmId;
 
   const AdminMessageDetailScreen({
-    Key? key,
+    super.key,
     required this.messageId,
     required this.farmId,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
-    final Color primaryColor = const Color(0xFF40C4FF);
-    final Color adminColor = Colors.purple;
+    const Color primaryColor = Color(0xFF40C4FF);
+    const Color adminColor = Colors.purple;
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -23,7 +23,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
         elevation: 0,
         backgroundColor: Colors.white,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
+          icon: const Icon(Icons.arrow_back, color: primaryColor),
           onPressed: () => Navigator.pop(context),
         ),
         title: Image.asset(
@@ -61,8 +61,8 @@ class AdminMessageDetailScreen extends StatelessWidget {
             final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
             final isAdminMessage = data['source'] == 'admin';
 
-            // Mark the message as read
-            FirebaseFirestore.instance.collection('messages').doc(messageId).update({'status': 'read'});
+            // Mark the message as read for admin
+            FirebaseFirestore.instance.collection('messages').doc(messageId).update({'isNewForAdmin': false});
 
             return SingleChildScrollView(
               padding: const EdgeInsets.all(24),
@@ -104,7 +104,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
-                            isAdminMessage ? 'From Admin' : 'To Admin',
+                            isAdminMessage ? 'From Admin' : 'From Fisher',
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,

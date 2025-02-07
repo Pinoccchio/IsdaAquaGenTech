@@ -5,18 +5,18 @@ import 'package:flutter_tflite/flutter_tflite.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'dart:developer' as devtools;
-import '../fisher_reports_screen/fisher_reports_screen.dart';
 import 'report_details_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FishScanner extends StatefulWidget {
   final File initialImage;
   final String farmId;
 
   const FishScanner({
-    Key? key,
+    super.key,
     required this.initialImage,
     required this.farmId,
-  }) : super(key: key);
+  });
 
   @override
   State<FishScanner> createState() => _FishScannerState();
@@ -30,13 +30,73 @@ class _FishScannerState extends State<FishScanner> {
   bool showResults = false;
   bool isLoading = true;
   Map<String, dynamic>? farmData;
+  bool _isMounted = false;
+
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'Select Image Source': 'Pumili ng Pinagmulan ng Larawan',
+      'Camera': 'Kamera',
+      'Gallery': 'Galeri',
+      'RETAKE': 'KUNAN MULI',
+      'ANALYZE': 'SURIIN',
+      'REPORT': 'MAG-ULAT',
+      'RESULTS': 'MGA RESULTA',
+      'ANALYZING': 'SINUSURI',
+      'Confidence': 'Kumpiyansa',
+      'Failed to create report': 'Hindi nagawa ang pag-uulat',
+      'Do you want to report it to Bureau of Fisheries and Aquatic Resources (BFAR)?': 'Gusto mo bang ireport ito sa Bureau of Fisheries and Aquatic Resources (BFAR)?',
+      'YES': 'OO',
+      'NO': 'HINDI',
+      'Confirm Report': 'Kumpirma ang Ulat',
+      'Do you want to proceed with this report?': 'Gusto mo bang magpatuloy sa ulat na ito?',
+      'Cancel': 'Kanselahin',
+      'Proceed': 'Magpatuloy',
+    },
+    'Bisaya': {
+      'Select Image Source': 'Pagpili sa Tinubdan sa Hulagway',
+      'Camera': 'Kamera',
+      'Gallery': 'Galeri',
+      'RETAKE': 'KUHAA PAGI',
+      'ANALYZE': 'ANALISAR',
+      'REPORT': 'IREPORT',
+      'RESULTS': 'MGA RESULTA',
+      'ANALYZING': 'GIANALISAR',
+      'Confidence': 'Pagsalig',
+      'Failed to create report': 'Napakyas sa paghimo og report',
+      'Do you want to report it to Bureau of Fisheries and Aquatic Resources (BFAR)?': 'Gusto ba nimo ireport kini sa Bureau of Fisheries and Aquatic Resources (BFAR)?',
+      'YES': 'OO',
+      'NO': 'DILI',
+      'Confirm Report': 'Kumpirma ang Report',
+      'Do you want to proceed with this report?': 'Gusto ba nimong ipadayon kini nga report?',
+      'Cancel': 'Kanselaha',
+      'Proceed': 'Padayon',
+    },
+  };
 
   @override
   void initState() {
     super.initState();
+    _isMounted = true;
     filePath = widget.initialImage;
     _tfLiteInit();
     _fetchFarmData();
+    _loadLanguagePreference();
+  }
+
+  Future<void> _tfLiteInit() async {
+    try {
+      String? res = await Tflite.loadModel(
+          model: "lib/models/model_unquant.tflite",
+          labels: "lib/models/labels.txt",
+          numThreads: 1,
+          isAsset: true,
+          useGpuDelegate: false
+      );
+      devtools.log('TFLite model loaded: $res');
+    } catch (e) {
+      devtools.log('Error loading TFLite model: $e');
+    }
   }
 
   Future<void> _fetchFarmData() async {
@@ -46,7 +106,7 @@ class _FishScannerState extends State<FishScanner> {
           .doc(widget.farmId)
           .get();
 
-      if (farmDoc.exists) {
+      if (farmDoc.exists && _isMounted) {
         Map<String, dynamic> data = farmDoc.data() as Map<String, dynamic>;
         setState(() {
           farmData = {
@@ -96,24 +156,11 @@ class _FishScannerState extends State<FishScanner> {
       }
     } catch (e) {
       devtools.log('Error fetching farm data: $e');
-      setState(() {
-        isLoading = false;
-      });
-    }
-  }
-
-  Future<void> _tfLiteInit() async {
-    try {
-      String? res = await Tflite.loadModel(
-          model: "lib/models/model_unquant.tflite",
-          labels: "lib/models/labels.txt",
-          numThreads: 1,
-          isAsset: true,
-          useGpuDelegate: false
-      );
-      devtools.log('TFLite model loaded: $res');
-    } catch (e) {
-      devtools.log('Error loading TFLite model: $e');
+      if (_isMounted) {
+        setState(() {
+          isLoading = false;
+        });
+      }
     }
   }
 
@@ -130,9 +177,9 @@ class _FishScannerState extends State<FishScanner> {
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const Text(
-                  'Select Image Source',
-                  style: TextStyle(
+                Text(
+                  _getTranslatedText('Select Image Source'),
+                  style: const TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
                   ),
@@ -152,7 +199,7 @@ class _FishScannerState extends State<FishScanner> {
                           color: const Color(0xFF40C4FF),
                         ),
                         const SizedBox(height: 8),
-                        const Text('Camera'),
+                        Text(_getTranslatedText('Camera')),
                       ],
                     ),
                     Column(
@@ -166,7 +213,7 @@ class _FishScannerState extends State<FishScanner> {
                           color: const Color(0xFF40C4FF),
                         ),
                         const SizedBox(height: 8),
-                        const Text('Gallery'),
+                        Text(_getTranslatedText('Gallery')),
                       ],
                     ),
                   ],
@@ -180,27 +227,33 @@ class _FishScannerState extends State<FishScanner> {
   }
 
   Future<void> pickImage(ImageSource source) async {
-    setState(() {
-      showResults = false;
-      isAnalyzing = false;
-    });
+    if (_isMounted) {
+      setState(() {
+        showResults = false;
+        isAnalyzing = false;
+      });
+    }
 
     final ImagePicker picker = ImagePicker();
     final XFile? image = await picker.pickImage(source: source);
 
     if (image == null) return;
 
-    setState(() {
-      filePath = File(image.path);
-    });
+    if (_isMounted) {
+      setState(() {
+        filePath = File(image.path);
+      });
+    }
   }
 
   Future<void> analyzeImage() async {
     if (filePath == null) return;
 
-    setState(() {
-      isAnalyzing = true;
-    });
+    if (_isMounted) {
+      setState(() {
+        isAnalyzing = true;
+      });
+    }
 
     try {
       var recognitions = await Tflite.runModelOnImage(
@@ -214,115 +267,155 @@ class _FishScannerState extends State<FishScanner> {
 
       if (recognitions == null) {
         devtools.log("recognitions is Null");
-        setState(() {
-          isAnalyzing = false;
-        });
+        if (_isMounted) {
+          setState(() {
+            isAnalyzing = false;
+          });
+        }
         return;
       }
 
       devtools.log(recognitions.toString());
 
-      setState(() {
-        confidence = (recognitions[0]['confidence'] * 100);
-        label = recognitions[0]['label'].toString();
-        isAnalyzing = false;
-        showResults = true;
-      });
+      if (_isMounted) {
+        setState(() {
+          confidence = (recognitions[0]['confidence'] * 100);
+          label = recognitions[0]['label'].toString();
+          isAnalyzing = false;
+          showResults = true;
+        });
+      }
     } catch (e) {
       devtools.log('Error analyzing image: $e');
-      setState(() {
-        isAnalyzing = false;
-      });
+      if (_isMounted) {
+        setState(() {
+          isAnalyzing = false;
+        });
+      }
     }
   }
 
-  Future<String> _uploadImageToStorage(File imageFile, String reportId) async {
-    try {
-      final storageRef = FirebaseStorage.instance
-          .ref()
-          .child('reports')
-          .child('$reportId.jpg');
 
-      await storageRef.putFile(imageFile);
-      final downloadUrl = await storageRef.getDownloadURL();
-      return downloadUrl;
-    } catch (e) {
-      devtools.log('Error uploading image: $e');
-      rethrow;
-    }
-  }
-
-  Future<void> _createReport() async {
+  Future<void> _navigateToReportDetails() async {
     if (filePath == null || farmData == null) return;
 
-    try {
-      setState(() {
-        isLoading = true;
-      });
-
-      final reportRef = await FirebaseFirestore.instance.collection('reports').add({
-        'detection': label,
-        'confidence': confidence,
-        'timestamp': FieldValue.serverTimestamp(),
-        'farmId': widget.farmId,
-        'farmName': farmData!['farmName'],
-        'ownerFirstName': farmData!['firstName'],
-        'ownerLastName': farmData!['lastName'],
-        'location': {
-          'barangay': farmData!['barangay'],
-          'municipality': farmData!['municipality'],
-          'province': farmData!['province'],
-          'region': farmData!['region'],
-        },
-        'realtime_location': farmData!['realtime_location'],
-        'contactNumber': farmData!['contactNumber'],
-        'feedTypes': farmData!['feedTypes'],
-      });
-
-      final imageUrl = await _uploadImageToStorage(filePath!, reportRef.id);
-      await reportRef.update({'imageUrl': imageUrl});
-
-      // Update the farm's status
-      await FirebaseFirestore.instance
-          .collection('farms')
-          .doc(widget.farmId)
-          .update({
-        'status': label.toLowerCase().contains('not likely detected')
-            ? 'virusnotlikelydetected'
-            : 'viruslikelydetected',
-      });
-
-      if (!mounted) return;
-
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => ReportDetailsScreen(
-            reportId: reportRef.id,
-            imageFile: filePath!,
-            detection: label,
-            farmData: {
-              ...farmData!,
-              'farmId': widget.farmId,
-            },
-          ),
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => ReportDetailsScreen(
+          imageFile: filePath!,
+          detection: label,
+          confidence: confidence,
+          farmData: {
+            ...farmData!,
+            'farmId': widget.farmId,
+          },
         ),
-      );
-    } catch (e) {
-      devtools.log('Error creating report: $e');
-      if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Failed to create report')),
-      );
-    } finally {
-      setState(() {
-        isLoading = false;
-      });
+      ),
+    );
+  }
+
+  Future<void> _showReportConfirmationDialog() async {
+    await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          child: Container(
+            padding: const EdgeInsets.all(24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  _getTranslatedText('Confirm Report'),
+                  style: const TextStyle(
+                    fontSize: 24,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF40C4FF),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                const Icon(
+                  Icons.report_outlined,
+                  size: 64,
+                  color: Color(0xFF40C4FF),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  _getTranslatedText('Do you want to proceed with this report?'),
+                  textAlign: TextAlign.center,
+                  style: const TextStyle(fontSize: 16),
+                ),
+                const SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.grey[300],
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Text(
+                        _getTranslatedText('Cancel'),
+                        style: const TextStyle(
+                          color: Colors.black87,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop();
+                        _navigateToReportDetails();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFF40C4FF),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Text(
+                        _getTranslatedText('Proceed'),
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
     }
+    return _translations[_selectedLanguage]?[key] ?? key;
   }
 
   @override
   void dispose() {
+    _isMounted = false;
     Tflite.close();
     super.dispose();
   }
@@ -371,7 +464,7 @@ class _FishScannerState extends State<FishScanner> {
                 if (confidence > 0) ...[
                   const SizedBox(height: 8),
                   Text(
-                    'Confidence: ${confidence.toStringAsFixed(1)}%',
+                    '${_getTranslatedText('Confidence')}: ${confidence.toStringAsFixed(1)}%',
                     style: TextStyle(
                       color: Colors.grey[600],
                       fontSize: 14,
@@ -383,24 +476,15 @@ class _FishScannerState extends State<FishScanner> {
           ),
           const SizedBox(height: 16),
           ElevatedButton(
-            onPressed: isLoading ? null : _createReport,
+            onPressed: _showReportConfirmationDialog,
             style: ElevatedButton.styleFrom(
               backgroundColor: const Color(0xFF40C4FF),
               padding: const EdgeInsets.symmetric(horizontal: 48, vertical: 12),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
             ),
-            child: isLoading
-                ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-                : const Text(
-              'REPORT',
-              style: TextStyle(color: Colors.white),
+            child: Text(
+              _getTranslatedText('REPORT'),
+              style: const TextStyle(color: Colors.white),
             ),
           ),
         ],
@@ -419,9 +503,9 @@ class _FishScannerState extends State<FishScanner> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               ),
-              child: const Text(
-                'RETAKE',
-                style: TextStyle(color: Colors.white),
+              child: Text(
+                _getTranslatedText('RETAKE'),
+                style: const TextStyle(color: Colors.white),
               ),
             ),
             ElevatedButton(
@@ -431,9 +515,9 @@ class _FishScannerState extends State<FishScanner> {
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
                 shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
               ),
-              child: const Text(
-                'ANALYZE',
-                style: TextStyle(color: Colors.white),
+              child: Text(
+                _getTranslatedText('ANALYZE'),
+                style: const TextStyle(color: Colors.white),
               ),
             ),
           ],
@@ -441,6 +525,7 @@ class _FishScannerState extends State<FishScanner> {
       ],
     );
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -471,22 +556,22 @@ class _FishScannerState extends State<FishScanner> {
           ? const Center(child: CircularProgressIndicator())
           : Column(
         children: [
-          if (showResults) const Padding(
-            padding: EdgeInsets.all(16.0),
+          if (showResults) Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Text(
-              'RESULTS',
-              style: TextStyle(
+              _getTranslatedText('RESULTS'),
+              style: const TextStyle(
                 fontSize: 24,
                 fontWeight: FontWeight.bold,
               ),
             ),
           ),
           _buildImageContainer(),
-          if (isAnalyzing) const Padding(
-            padding: EdgeInsets.all(16.0),
+          if (isAnalyzing) Padding(
+            padding: const EdgeInsets.all(16.0),
             child: Text(
-              'ANALYZING',
-              style: TextStyle(
+              _getTranslatedText('ANALYZING'),
+              style: const TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),

@@ -2,12 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'dart:async';
-import 'package:intl/intl.dart';
 import 'package:geocoding/geocoding.dart';
 import 'fish_farm_details_screen.dart';
 
 class FishFarmLocationScreen extends StatefulWidget {
-  const FishFarmLocationScreen({Key? key}) : super(key: key);
+  const FishFarmLocationScreen({super.key});
 
   @override
   _FishFarmLocationScreenState createState() => _FishFarmLocationScreenState();
@@ -21,8 +20,9 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
   int _unreadNotifications = 0;
   String? _selectedFarmId;
   List<Map<String, dynamic>> _farmReports = [];
-  DateTime _selectedDate = DateTime.now().add(const Duration(days: 14));
-  TimeOfDay _selectedTime = TimeOfDay.now();
+  final DateTime _selectedDate = DateTime.now().add(const Duration(days: 14));
+  final TimeOfDay _selectedTime = TimeOfDay.now();
+  StreamSubscription<QuerySnapshot>? _reportsSubscription;
 
   static final LatLngBounds philippinesBounds = LatLngBounds(
     southwest: const LatLng(4.2259, 116.9282),
@@ -42,9 +42,11 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
         .where('read', isEqualTo: false)
         .snapshots()
         .listen((snapshot) {
-      setState(() {
-        _unreadNotifications = snapshot.docs.length;
-      });
+      if (mounted) {
+        setState(() {
+          _unreadNotifications = snapshot.docs.length;
+        });
+      }
     });
   }
 
@@ -72,7 +74,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
   }
 
   void _listenToReports() {
-    FirebaseFirestore.instance
+    _reportsSubscription = FirebaseFirestore.instance
         .collection('reports')
         .orderBy('timestamp', descending: true)
         .snapshots()
@@ -80,7 +82,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
       final Map<String, List<DocumentSnapshot>> farmReports = {};
 
       for (var doc in snapshot.docs) {
-        final data = doc.data() as Map<String, dynamic>;
+        final data = doc.data();
         final farmId = data['farmId'] as String?;
         if (farmId != null) {
           if (!farmReports.containsKey(farmId)) {
@@ -90,9 +92,11 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
         }
       }
 
-      setState(() {
-        _markers.clear();
-      });
+      if (mounted) {
+        setState(() {
+          _markers.clear();
+        });
+      }
 
       for (var farmId in farmReports.keys) {
         final latestReport = farmReports[farmId]!.first;
@@ -105,82 +109,92 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
 
           String locationDescription = await _getLocationDescription(lat, lng);
 
-          setState(() {
-            final marker = Marker(
-              markerId: MarkerId(farmId),
-              position: LatLng(lat, lng),
-              icon: _getMarkerIcon(
-                  data['detection'] ?? '',
-                  data['status'] ?? 'normal',
-                  data['isReplied'] ?? false
-              ),
-              infoWindow: InfoWindow(
-                title: data['farmName'] ?? 'Unnamed Farm',
-                snippet: 'Tap to view reports',
-              ),
-              onTap: () => _showFarmReports(farmId, farmReports[farmId]!, locationDescription),
-            );
-            _markers.add(marker);
-          });
+          if (mounted) {
+            setState(() {
+              final marker = Marker(
+                markerId: MarkerId(farmId),
+                position: LatLng(lat, lng),
+                icon: _getMarkerIcon(
+                    data['detection'] ?? '',
+                    data['status'] ?? 'normal',
+                    data['isReplied'] ?? false
+                ),
+                infoWindow: InfoWindow(
+                  title: data['farmName'] ?? 'Unnamed Farm',
+                  snippet: 'Tap to view reports',
+                ),
+                onTap: () => _showFarmReports(farmId, farmReports[farmId]!, locationDescription),
+              );
+              _markers.add(marker);
+            });
+          }
         }
       }
 
-      setState(() {
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }, onError: (error) {
-      setState(() {
-        _isLoading = false;
-        _errorMessage = 'Error loading reports: $error';
-      });
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error loading reports: $error';
+        });
+      }
     });
   }
 
   void _showFarmReports(String farmId, List<DocumentSnapshot> reports, String locationDescription) {
-    setState(() {
-      _selectedFarmId = farmId;
-      _farmReports = reports.map((doc) {
-        final data = doc.data() as Map<String, dynamic>;
-        return {
-          'id': doc.id,
-          'timestamp': data['timestamp'],
-          'detection': data['detection'],
-          'farmName': data['farmName'],
-          'ownerFirstName': data['ownerFirstName'],
-          'ownerLastName': data['ownerLastName'],
-          'locationDescription': locationDescription,
-          'farmId': data['farmId'],
-          'status': data['status'] ?? 'normal',
-          'isReplied': data['isReplied'] ?? false,
-          'imageUrl': data['imageUrl'],
-          'confidence': data['confidence'],
-          'contactNumber': data['contactNumber'],
-          'feedTypes': data['feedTypes'],
-          'location': data['location'],
-        };
-      }).toList();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedFarmId = farmId;
+        _farmReports = reports.map((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          return {
+            'id': doc.id,
+            'timestamp': data['timestamp'],
+            'detection': data['detection'],
+            'farmName': data['farmName'],
+            'ownerFirstName': data['ownerFirstName'],
+            'ownerLastName': data['ownerLastName'],
+            'locationDescription': locationDescription,
+            'farmId': data['farmId'],
+            'status': data['status'] ?? 'normal',
+            'isReplied': data['isReplied'] ?? false,
+            'imageUrl': data['imageUrl'],
+            'confidence': data['confidence'],
+            'contactNumber': data['contactNumber'],
+            'feedTypes': data['feedTypes'],
+            'location': data['location'],
+            'isNewForAdmin': data['isNewForAdmin'] ?? false,
+          };
+        }).toList();
+      });
+    }
   }
 
   void _closeFarmReports() {
-    setState(() {
-      _selectedFarmId = null;
-      _farmReports.clear();
-    });
+    if (mounted) {
+      setState(() {
+        _selectedFarmId = null;
+        _farmReports.clear();
+      });
+    }
   }
 
   String _formatTimestamp(Timestamp timestamp) {
     final date = timestamp.toDate();
     final hour = date.hour % 12 == 0 ? 12 : date.hour % 12;
     final period = date.hour < 12 ? 'AM' : 'PM';
-    return '${date.month}/${date.day}/${date.year} ${hour}:${date.minute.toString().padLeft(2, '0')} $period';
+    return '${date.month}/${date.day}/${date.year} $hour:${date.minute.toString().padLeft(2, '0')} $period';
   }
 
   Widget _buildReportsList() {
     if (_selectedFarmId == null) return const SizedBox.shrink();
 
     return Container(
-      height: 250,
       width: double.infinity,
       decoration: BoxDecoration(
         color: Colors.white,
@@ -220,17 +234,20 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
                 final detection = report['detection'] as String? ?? 'Unknown';
                 final isVirusLikelyDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
                     !detection.toUpperCase().contains('NOT LIKELY DETECTED');
+                final isNewForAdmin = report['isNewForAdmin'] ?? false;
 
                 return GestureDetector(
-                  onTap: () => Navigator.push(
-                    context,
-                    MaterialPageRoute(
-                      builder: (context) => FishFarmDetailsScreen(
-                        reportId: report['id'],
-                        farmData: report,
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => FishFarmDetailsScreen(
+                          reportId: report['id'],
+                          farmData: report,
+                        ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                   child: Container(
                     margin: const EdgeInsets.symmetric(vertical: 8),
                     padding: const EdgeInsets.all(16),
@@ -239,6 +256,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
                         color: const Color(0xFF40C4FF),
                       ),
                       borderRadius: BorderRadius.circular(12),
+                      color: isNewForAdmin ? const Color(0xFFE3F2FD) : null,
                     ),
                     child: Row(
                       children: [
@@ -330,38 +348,6 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
           height: 32,
         ),
         centerTitle: true,
-        actions: [
-          Stack(
-            children: [
-              IconButton(
-                icon: const Icon(Icons.notifications_none, color: Colors.black),
-                onPressed: () {
-                  // Navigate to notifications
-                },
-              ),
-              if (_unreadNotifications > 0)
-                Positioned(
-                  right: 8,
-                  top: 8,
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: Text(
-                      _unreadNotifications.toString(),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 8),
-        ],
         bottom: PreferredSize(
           preferredSize: const Size.fromHeight(60),
           child: Container(
@@ -391,52 +377,57 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
           ),
         ),
       ),
-      body: Stack(
+      body: Column(
         children: [
-          GoogleMap(
-            mapType: MapType.normal,
-            initialCameraPosition: const CameraPosition(
-              target: LatLng(12.8797, 121.7740),
-              zoom: 5,
-            ),
-            onMapCreated: _onMapCreated,
-            markers: _markers,
-            myLocationEnabled: true,
-            myLocationButtonEnabled: false,
-            zoomControlsEnabled: false,
-            mapToolbarEnabled: false,
-            minMaxZoomPreference: const MinMaxZoomPreference(5, 18),
-            cameraTargetBounds: CameraTargetBounds(philippinesBounds),
-            onTap: (_) => _closeFarmReports(),
-          ),
-          if (_isLoading)
-            Container(
-              color: Colors.white.withOpacity(0.8),
-              child: const Center(
-                child: CircularProgressIndicator(),
-              ),
-            ),
-          if (_errorMessage.isNotEmpty)
-            Container(
-              color: Colors.white.withOpacity(0.8),
-              child: Center(
-                child: Text(
-                  _errorMessage,
-                  style: const TextStyle(color: Colors.red),
-                  textAlign: TextAlign.center,
+          Expanded(
+            flex: 6,
+            child: Stack(
+              children: [
+                GoogleMap(
+                  mapType: MapType.normal,
+                  initialCameraPosition: const CameraPosition(
+                    target: LatLng(12.8797, 121.7740),
+                    zoom: 5,
+                  ),
+                  onMapCreated: _onMapCreated,
+                  markers: _markers,
+                  myLocationEnabled: true,
+                  myLocationButtonEnabled: false,
+                  zoomControlsEnabled: false,
+                  mapToolbarEnabled: false,
+                  minMaxZoomPreference: const MinMaxZoomPreference(5, 18),
+                  cameraTargetBounds: CameraTargetBounds(philippinesBounds),
+                  onTap: (_) => _closeFarmReports(),
                 ),
-              ),
+                if (_isLoading)
+                  Container(
+                    color: Colors.white.withOpacity(0.8),
+                    child: const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                  ),
+                if (_errorMessage.isNotEmpty)
+                  Container(
+                    color: Colors.white.withOpacity(0.8),
+                    child: Center(
+                      child: Text(
+                        _errorMessage,
+                        style: const TextStyle(color: Colors.red),
+                        textAlign: TextAlign.center,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          Positioned(
-            left: 0,
-            right: 0,
-            bottom: 0,
+          ),
+          Expanded(
+            flex: 4,
             child: _buildReportsList(),
           ),
         ],
       ),
       floatingActionButton: Container(
-        margin: const EdgeInsets.only(bottom: 266),
+        margin: const EdgeInsets.only(bottom: 16),
         child: FloatingActionButton(
           onPressed: _centerMapOnPhilippines,
           backgroundColor: const Color(0xFF40C4FF),
@@ -444,6 +435,12 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
         ),
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _reportsSubscription?.cancel();
+    super.dispose();
   }
 }
 

@@ -1,24 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import 'fisher_message_detail_screen.dart';
 
-class FisherMessageScreen extends StatefulWidget {
+class FisherMessageScreen extends StatelessWidget {
   final String farmId;
 
   const FisherMessageScreen({
-    Key? key,
+    super.key,
     required this.farmId,
-  }) : super(key: key);
-
-  @override
-  State<FisherMessageScreen> createState() => _FisherMessageScreenState();
-}
-
-class _FisherMessageScreenState extends State<FisherMessageScreen> {
-  final Color primaryColor = const Color(0xFF40C4FF);
-  final Color adminColor = Colors.purple;
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -28,208 +21,173 @@ class _FisherMessageScreenState extends State<FisherMessageScreen> {
         elevation: 0,
         backgroundColor: Colors.white,
         leading: IconButton(
-          icon: Icon(Icons.arrow_back, color: primaryColor),
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
         title: Image.asset(
           'lib/assets/images/primary-logo.png',
-          height: 32,
+          height: 40,
         ),
         centerTitle: true,
       ),
-      body: SafeArea(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Padding(
-              padding: const EdgeInsets.fromLTRB(24, 24, 24, 16),
-              child: Text(
-                'Messages',
+      body: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance
+            .collection('messages')
+            .where('farmId', isEqualTo: farmId)
+            .orderBy('timestamp', descending: false) // Changed to ascending order
+            .snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.hasError) {
+            return Center(child: Text('Error: ${snapshot.error}'));
+          }
+
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+            return const Center(child: Text('No messages found'));
+          }
+
+          return ListView.builder(
+            itemCount: snapshot.data!.docs.length,
+            itemBuilder: (context, index) {
+              var message = snapshot.data!.docs[index];
+              return _buildMessageBubble(context, message);
+            },
+          );
+        },
+      ),
+    );
+  }
+
+  Widget _buildMessageBubble(BuildContext context, DocumentSnapshot message) {
+    final data = message.data() as Map<String, dynamic>;
+    final isAdmin = data['source'] == 'admin';
+    final timestamp = data['timestamp'] as Timestamp;
+    final dateTime = timestamp.toDate();
+    final formattedTime = DateFormat('h:mm a').format(dateTime);
+    final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
+
+    Color bubbleColor;
+    Color textColor;
+    if (isAdmin) {
+      bubbleColor = Colors.grey[300]!;
+      textColor = Colors.black;
+    } else {
+      final content = data['content'] as String? ?? '';
+      if (content.toLowerCase().contains('virus likely detected')) {
+        bubbleColor = Colors.red[100]!;
+        textColor = Colors.red[900]!;
+      } else if (content.toLowerCase().contains('virus not likely detected')) {
+        bubbleColor = Colors.green[100]!;
+        textColor = Colors.green[900]!;
+      } else {
+        bubbleColor = const Color(0xFF40C4FF);
+        textColor = Colors.white;
+      }
+    }
+
+    return GestureDetector(
+      onTap: () async {
+        await Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => MessageDetailScreen(
+              messageId: message.id,
+              farmId: farmId,
+            ),
+          ),
+        );
+        // Update the message isNew field to false after viewing
+        await FirebaseFirestore.instance
+            .collection('messages')
+            .doc(message.id)
+            .update({'isNew': false});
+      },
+      child: Align(
+        alignment: isAdmin ? Alignment.centerLeft : Alignment.centerRight, // Fisher messages on the right
+        child: Container(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: bubbleColor,
+            borderRadius: BorderRadius.circular(20),
+          ),
+          constraints: BoxConstraints(
+            maxWidth: MediaQuery.of(context).size.width * 0.75,
+          ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _getMessagePreview(data),
                 style: TextStyle(
-                  fontSize: 24,
-                  fontWeight: FontWeight.bold,
-                  color: primaryColor,
+                  color: textColor,
+                  fontSize: 16,
+                ),
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 4),
+              Text(
+                '$formattedDate at $formattedTime',
+                style: TextStyle(
+                  color: textColor.withOpacity(0.7),
+                  fontSize: 12,
                 ),
               ),
-            ),
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: FirebaseFirestore.instance
-                    .collection('messages')
-                    .where('farmId', isEqualTo: widget.farmId)
-                    .orderBy('timestamp', descending: true)
-                    .snapshots(),
-                builder: (context, snapshot) {
-                  if (snapshot.hasError) {
-                    return Center(child: Text('Error: ${snapshot.error}'));
-                  }
-
-                  if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-
-                  final messages = snapshot.data?.docs ?? [];
-
-                  if (messages.isEmpty) {
-                    return Center(
-                      child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [
-                          Icon(
-                            Icons.message_outlined,
-                            size: 64,
-                            color: primaryColor.withOpacity(0.5),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            'No messages yet',
-                            style: TextStyle(
-                              fontSize: 18,
-                              color: primaryColor,
-                              fontWeight: FontWeight.w500,
-                            ),
-                          ),
-                        ],
-                      ),
-                    );
-                  }
-
-                  return ListView.separated(
-                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                    itemCount: messages.length,
-                    separatorBuilder: (context, index) => const SizedBox(height: 16),
-                    itemBuilder: (context, index) {
-                      final message = messages[index];
-                      final data = message.data() as Map<String, dynamic>;
-                      final messageId = message.id;
-                      final hasUnread = data['status'] == 'unread';
-                      final timestamp = data['timestamp'] as Timestamp;
-                      final dateTime = timestamp.toDate();
-                      final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
-                      final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
-                      final isAdminMessage = data['source'] == 'admin';
-
-                      return InkWell(
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (context) => MessageDetailScreen(
-                                messageId: messageId,
-                                farmId: widget.farmId,
-                              ),
-                            ),
-                          );
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: hasUnread
-                                ? (isAdminMessage ? adminColor.withOpacity(0.1) : primaryColor.withOpacity(0.1))
-                                : Colors.white,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isAdminMessage ? adminColor.withOpacity(0.3) : primaryColor.withOpacity(0.3)),
-                          ),
-                          child: Row(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              if (!isAdminMessage)
-                                Container(
-                                  width: 8,
-                                  height: 8,
-                                  margin: const EdgeInsets.only(top: 6, right: 12),
-                                  decoration: BoxDecoration(
-                                    shape: BoxShape.circle,
-                                    color: isVirusLikelyDetected ? Colors.red : Colors.green,
-                                  ),
-                                ),
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                      children: [
-                                        Text(
-                                          isAdminMessage ? 'From Admin' : 'To Admin',
-                                          style: TextStyle(
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                            color: isAdminMessage ? adminColor : primaryColor,
-                                          ),
-                                        ),
-                                        if (hasUnread)
-                                          Container(
-                                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                            decoration: BoxDecoration(
-                                              color: isAdminMessage ? adminColor : primaryColor,
-                                              borderRadius: BorderRadius.circular(12),
-                                            ),
-                                            child: const Text(
-                                              'New',
-                                              style: TextStyle(
-                                                fontSize: 12,
-                                                fontWeight: FontWeight.bold,
-                                                color: Colors.white,
-                                              ),
-                                            ),
-                                          ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      formattedDate,
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        color: Colors.grey[600],
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      _getMessagePreview(data),
-                                      style: TextStyle(
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w500,
-                                        color: isAdminMessage ? Colors.grey[800] : (isVirusLikelyDetected ? Colors.red : Colors.green),
-                                      ),
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                  ],
-                                ),
-                              ),
-                              Icon(
-                                Icons.chevron_right,
-                                color: isAdminMessage ? adminColor : primaryColor,
-                              ),
-                            ],
-                          ),
-                        ),
-                      );
-                    },
-                  );
-                },
-              ),
-            ),
-          ],
+              if (data['isNew'] == true)
+                Container(
+                  margin: const EdgeInsets.only(top: 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  decoration: BoxDecoration(
+                    color: Colors.red,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: const Text(
+                    'NEW',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+              if (data['imageUrl'] != null && data['imageUrl'].isNotEmpty)
+                Container(
+                  margin: const EdgeInsets.only(top: 8),
+                  height: 150,
+                  width: 200,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(10),
+                    child: CachedNetworkImage(
+                      imageUrl: data['imageUrl'],
+                      fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(Icons.error),
+                    ),
+                  ),
+                ),
+            ],
+          ),
         ),
       ),
     );
   }
 
   String _getMessagePreview(Map<String, dynamic> data) {
-    if (data['source'] == 'admin') {
-      return 'From Admin: ${data['replyMessage'] ?? 'No message content'}';
+    if (data['requestedChanges'] != null) {
+      return 'Edit request submitted from ${data['requestedChanges']['farmName'] ?? 'farm'}';
+    } else if (data['source'] == 'admin') {
+      return data['replyMessage'] as String? ?? 'No message content';
     } else {
       final detection = data['detection'] ?? 'Unknown';
       final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
-      if (isVirusLikelyDetected) {
-        return 'To Admin: Alert - $detection detected';
-      } else {
-        return 'To Admin: Report - $detection';
-      }
+      return isVirusLikelyDetected
+          ? 'Alert - $detection'
+          : 'Report - $detection';
     }
   }
 }
-
 

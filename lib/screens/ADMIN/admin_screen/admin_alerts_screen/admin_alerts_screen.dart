@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 
 class AdminAlertsScreen extends StatefulWidget {
-  const AdminAlertsScreen({Key? key}) : super(key: key);
+  const AdminAlertsScreen({super.key});
 
   @override
   _AdminAlertsScreenState createState() => _AdminAlertsScreenState();

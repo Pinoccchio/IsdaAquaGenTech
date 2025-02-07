@@ -7,7 +7,7 @@ import '../ADMIN/admin_screen/admin_home_screen/admin_container_screen.dart';
 import '../FISHER/fisher_screens/fisher_container_screen/fisher_container_screen.dart';
 
 class FisherOrAdminLoginScreen extends StatefulWidget {
-  const FisherOrAdminLoginScreen({Key? key}) : super(key: key);
+  const FisherOrAdminLoginScreen({super.key});
 
   @override
   State<FisherOrAdminLoginScreen> createState() => _FisherOrAdminLoginScreenState();
@@ -35,13 +35,11 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
 
     String username = _usernameController.text.trim();
 
-    // Automatically append @gmail.com if the username contains "mobileapp"
     if (username.contains('mobileapp') && !username.endsWith('@gmail.com')) {
       username += '@gmail.com';
     }
 
     try {
-      // Check if it's an admin login
       if (username.contains('mobileapp')) {
         await _adminLogin(username);
       } else {
@@ -115,8 +113,18 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
         final DocumentSnapshot farm = result.docs.first;
         final data = farm.data() as Map<String, dynamic>;
 
+        if (data['isActive'] == false) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Your account has been deactivated. Please contact the admin for assistance.'),
+              backgroundColor: Colors.red,
+              duration: Duration(seconds: 5),
+            ),
+          );
+          return;
+        }
+
         if (data['password'] == _passwordController.text) {
-          // Login successful
           Fluttertoast.showToast(
             msg: "Fisher login successful",
             toastLength: Toast.LENGTH_LONG,
@@ -126,7 +134,6 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
             fontSize: 16.0,
           );
 
-          // Save login session
           final prefs = await SharedPreferences.getInstance();
           await prefs.setString('farmId', farm.id);
           await prefs.setString('farmName', data['farmName']);
@@ -180,7 +187,6 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
             child: Column(
               children: [
                 const SizedBox(height: 60),
-                // Logo
                 Image.asset(
                   'lib/assets/images/primary-logo.png',
                   width: 200,
@@ -188,8 +194,6 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
                   fit: BoxFit.contain,
                 ),
                 const SizedBox(height: 40),
-
-                // Username TextField
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
@@ -218,10 +222,7 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 20),
-
-                // Password TextField
                 Container(
                   decoration: BoxDecoration(
                     borderRadius: BorderRadius.circular(30),
@@ -264,10 +265,7 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 30),
-
-                // Login Button
                 Container(
                   width: double.infinity,
                   height: 50,
@@ -312,3 +310,4 @@ class _FisherOrAdminLoginScreenState extends State<FisherOrAdminLoginScreen> {
     );
   }
 }
+

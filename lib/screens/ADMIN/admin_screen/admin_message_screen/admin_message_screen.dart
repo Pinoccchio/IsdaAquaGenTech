@@ -1,25 +1,26 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'farm_message_screen.dart';
 import 'package:intl/intl.dart';
-import 'admin_message_detail_screen.dart';
 
 class AdminMessageScreen extends StatelessWidget {
-  const AdminMessageScreen({Key? key}) : super(key: key);
+  const AdminMessageScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: Colors.white,
       appBar: AppBar(
-        backgroundColor: Colors.white,
         elevation: 0,
+        backgroundColor: Colors.white,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: Colors.black),
           onPressed: () => Navigator.pop(context),
         ),
-        title: Image.asset(
-          'lib/assets/images/primary-logo.png',
-          height: 40,
+        title: const Text(
+          'Messages',
+          style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold),
         ),
         centerTitle: true,
       ),
@@ -41,11 +42,21 @@ class AdminMessageScreen extends StatelessWidget {
             return const Center(child: Text('No messages found'));
           }
 
+          // Group messages by farmId
+          Map<String, DocumentSnapshot> latestMessages = {};
+          for (var doc in snapshot.data!.docs) {
+            String farmId = doc['farmId'];
+            if (!latestMessages.containsKey(farmId)) {
+              latestMessages[farmId] = doc;
+            }
+          }
+
           return ListView.builder(
-            itemCount: snapshot.data!.docs.length,
+            itemCount: latestMessages.length,
             itemBuilder: (context, index) {
-              var message = snapshot.data!.docs[index];
-              return _buildMessageCard(context, message);
+              var farmId = latestMessages.keys.elementAt(index);
+              var latestMessage = latestMessages[farmId]!;
+              return _buildFarmListItem(context, farmId, latestMessage);
             },
           );
         },
@@ -53,86 +64,96 @@ class AdminMessageScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildMessageCard(BuildContext context, DocumentSnapshot message) {
-    final data = message.data() as Map<String, dynamic>;
-    final timestamp = data['timestamp'] as Timestamp;
-    final dateTime = timestamp.toDate();
-    final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
-    final formattedTime = DateFormat('h:mm a').format(dateTime);
-    final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
-    final isAdminMessage = data['source'] == 'admin';
+  Widget _buildFarmListItem(BuildContext context, String farmId, DocumentSnapshot latestMessage) {
+    return FutureBuilder<DocumentSnapshot>(
+      future: FirebaseFirestore.instance.collection('farms').doc(farmId).get(),
+      builder: (context, snapshot) {
+        if (!snapshot.hasData) {
+          return const ListTile(title: Text('Loading...'));
+        }
 
-    return GestureDetector(
-      onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => AdminMessageDetailScreen(
-              messageId: message.id,
-              farmId: data['farmId'],
-            ),
+        var farmData = snapshot.data!.data() as Map<String, dynamic>?;
+        final farmName = farmData?['farmName'] ?? 'Unknown Farm';
+        final pondImageUrl = farmData?['pondImageUrl'] ?? '';
+
+        var messageData = latestMessage.data() as Map<String, dynamic>?;
+        String lastMessage = messageData?['content'] ?? messageData?['replyMessage'] ?? 'No message content';
+        var timestamp = messageData?['timestamp'] as Timestamp?;
+        String lastMessageTime = timestamp != null
+            ? DateFormat('MMM d, y • h:mm a').format(timestamp.toDate())
+            : '';
+        bool isNewMessage = messageData?['isNewForAdmin'] ?? false;
+        bool isNewMessageFromAdmin = messageData?['isNewMessageFromAdmin'] ?? false;
+
+        if (farmName == 'Unknown Farm') {
+          return const SizedBox.shrink(); // Don't display anything for unknown farms
+        }
+
+        return ListTile(
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          leading: CircleAvatar(
+            radius: 30,
+            backgroundImage: pondImageUrl.isNotEmpty
+                ? CachedNetworkImageProvider(pondImageUrl) as ImageProvider
+                : null,
+            child: pondImageUrl.isEmpty ? const Icon(Icons.agriculture, size: 30) : null,
           ),
-        );
-      },
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          title: Text(
+            farmName,
+            style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+          ),
+          subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    data['farmName'] ?? 'Unknown Farm',
-                    style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF40C4FF),
-                    ),
-                  ),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                    decoration: BoxDecoration(
-                      color: isAdminMessage
-                          ? Colors.purple.withOpacity(0.1)
-                          : (isVirusLikelyDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1)),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Text(
-                      isAdminMessage ? 'Admin' : (isVirusLikelyDetected ? 'Alert' : 'Normal'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.bold,
-                        color: isAdminMessage
-                            ? Colors.purple
-                            : (isVirusLikelyDetected ? Colors.red : Colors.green),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 8),
               Text(
-                data['content'] ?? 'No content',
-                style: const TextStyle(fontSize: 16),
-                maxLines: 2,
+                lastMessage,
+                maxLines: 1,
                 overflow: TextOverflow.ellipsis,
-              ),
-              const SizedBox(height: 8),
-              Text(
-                '$formattedDate at $formattedTime',
                 style: TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey[600],
+                  color: isNewMessage || isNewMessageFromAdmin ? Colors.black : Colors.grey[600],
+                  fontWeight: isNewMessage || isNewMessageFromAdmin ? FontWeight.bold : FontWeight.normal,
                 ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                lastMessageTime,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
             ],
           ),
-        ),
-      ),
+          trailing: isNewMessage || isNewMessageFromAdmin
+              ? Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              color: isNewMessageFromAdmin ? Colors.green : Colors.blue,
+              shape: BoxShape.circle,
+            ),
+          )
+              : null,
+          onTap: () async {
+            // Mark all messages for this farm as read
+            QuerySnapshot messages = await FirebaseFirestore.instance
+                .collection('messages')
+                .where('farmId', isEqualTo: farmId)
+                .where('isNewMessageFromAdmin', isEqualTo: true)
+                .get();
+
+            WriteBatch batch = FirebaseFirestore.instance.batch();
+            for (var doc in messages.docs) {
+              batch.update(doc.reference, {'isNewMessageFromAdmin': false});
+            }
+            await batch.commit();
+
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => FarmMessageScreen(farmId: farmId, farmName: farmName),
+              ),
+            );
+          },
+        );
+      },
     );
   }
 }

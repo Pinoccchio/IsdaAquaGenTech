@@ -13,7 +13,7 @@ import 'package:isda_aqua_gentech/screens/ADMIN/admin_screen/regisiter_new_farm_
 import 'dart:io';
 
 class RegisterNewFarmScreen extends StatefulWidget {
-  const RegisterNewFarmScreen({Key? key}) : super(key: key);
+  const RegisterNewFarmScreen({super.key});
 
   @override
   State<RegisterNewFarmScreen> createState() => _RegisterNewFarmScreenState();
@@ -43,7 +43,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
 
   // Fish types
   final List<String> _fishTypes = ['TILAPIA', 'SHRIMPS'];
-  List<String?> _selectedFishTypes = [];
+  List<List<String>> _selectedFishTypes = [];
 
   // Sample data for number of cages
   final List<int> _numberOfCagesOptions = List.generate(20, (index) => index + 1);
@@ -64,7 +64,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
   Future<void> _initializeNotifications() async {
     const AndroidInitializationSettings initializationSettingsAndroid =
     AndroidInitializationSettings('@mipmap/ic_launcher');
-    final InitializationSettings initializationSettings = InitializationSettings(
+    const InitializationSettings initializationSettings = InitializationSettings(
       android: initializationSettingsAndroid,
     );
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
@@ -100,6 +100,8 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           'message': 'New farm registered: $farmName',
           'timestamp': FieldValue.serverTimestamp(),
           'read': false,
+          'isNew': true,
+          'isNewForAdmin': true,
         });
       }
     } catch (e) {
@@ -122,12 +124,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Error'),
+        title: const Text('Error'),
         content: Text(message),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('OK'),
+            child: const Text('OK'),
           ),
         ],
       ),
@@ -150,6 +152,11 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
         return;
       }
 
+      if (_selectedFishTypes.any((types) => types.isEmpty)) {
+        _showErrorDialog('Please select at least one fish type for each cage');
+        return;
+      }
+
       setState(() {
         _isLoading = true;
       });
@@ -165,7 +172,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
         for (int i = 0; i < _selectedFishTypes.length; i++) {
           fishTypesData.add({
             'cageNumber': i + 1,
-            'fishType': _selectedFishTypes[i],
+            'fishTypes': _selectedFishTypes[i],
           });
         }
 
@@ -188,11 +195,16 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
           'pondImageUrl': imageUrl,
           'createdAt': DateFormat('h:mm a').format(DateTime.now()),
           'status': 'pending',
+          'isNewForAdmin': true,
+          'isNew': true,
         });
 
         // Show success message
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Farm registered successfully')),
+          const SnackBar(
+            content: Text('Farm registered successfully'),
+            backgroundColor: Colors.green,
+          ),
         );
 
         // Show local notification (Android only)
@@ -204,7 +216,12 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
         Navigator.of(context).pop(); // Return to previous screen after successful registration
 
       } catch (e) {
-        _showErrorDialog('Error registering farm: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error registering farm: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
       } finally {
         setState(() {
           _isLoading = false;
@@ -338,7 +355,7 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                   onChanged: (value) {
                     setState(() {
                       _selectedNumberOfCages = value;
-                      _selectedFishTypes = List.filled(value ?? 0, null);
+                      _selectedFishTypes = List.generate(value ?? 0, (index) => []);
                     });
                   },
                   validator: (value) {
@@ -352,22 +369,42 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
                 if (_selectedNumberOfCages != null)
                   ...List.generate(_selectedNumberOfCages!, (index) {
                     return Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _buildDropdown(
-                          value: _selectedFishTypes[index],
-                          items: _fishTypes,
-                          hint: 'FISH TYPE FOR CAGE ${index + 1}',
-                          onChanged: (value) {
-                            setState(() {
-                              _selectedFishTypes[index] = value;
-                            });
-                          },
-                          validator: (value) {
-                            if (value == null || value.isEmpty) {
-                              return 'Please select a fish type for cage ${index + 1}';
-                            }
-                            return null;
-                          },
+                        Text(
+                          'FISH TYPES FOR CAGE ${index + 1}',
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 14,
+                            color: Color(0xFF40C4FF),
+                          ),
+                        ),
+                        const SizedBox(height: 8),
+                        Column(
+                          children: _fishTypes.map((type) {
+                            return Container(
+                              margin: const EdgeInsets.only(bottom: 8),
+                              decoration: BoxDecoration(
+                                border: Border.all(color: const Color(0xFF40C4FF)),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: CheckboxListTile(
+                                title: Text(type),
+                                value: _selectedFishTypes[index].contains(type),
+                                onChanged: (bool? value) {
+                                  setState(() {
+                                    if (value == true) {
+                                      _selectedFishTypes[index].add(type);
+                                    } else {
+                                      _selectedFishTypes[index].remove(type);
+                                    }
+                                  });
+                                },
+                                controlAffinity: ListTileControlAffinity.leading,
+                                activeColor: const Color(0xFF40C4FF),
+                              ),
+                            );
+                          }).toList(),
                         ),
                         const SizedBox(height: 16),
                       ],
@@ -655,3 +692,4 @@ class _RegisterNewFarmScreenState extends State<RegisterNewFarmScreen> {
     );
   }
 }
+

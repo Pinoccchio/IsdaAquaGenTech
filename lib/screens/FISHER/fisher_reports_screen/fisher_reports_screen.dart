@@ -4,17 +4,114 @@ import 'package:intl/intl.dart';
 import './report-detail-screen.dart';
 import 'fisher_report_notification_screen.dart';
 import 'package:geocoding/geocoding.dart';
+import 'notification_manager.dart';
+import 'package:badges/badges.dart' as badges;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FisherReportsScreen extends StatefulWidget {
   final String farmId;
+  final Function(bool) updateBadgeStatus;
 
-  const FisherReportsScreen({Key? key, required this.farmId}) : super(key: key);
+  const FisherReportsScreen({
+    super.key,
+    required this.farmId,
+    required this.updateBadgeStatus
+  });
 
   @override
   _FisherReportsScreenState createState() => _FisherReportsScreenState();
 }
 
 class _FisherReportsScreenState extends State<FisherReportsScreen> {
+  final NotificationManager _notificationManager = NotificationManager();
+  int _badgeCount = 0;
+  bool _isDisposed = false;
+  bool _hasNewAlerts = false;
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'REPORTS': 'MGA ULAT',
+      'No reports found.': 'Walang nahanap na mga ulat.',
+      'STATUS': 'KATAYUAN',
+      'FARM NAME': 'PANGALAN NG SAKAHAN',
+      'LOCATION': 'LOKASYON',
+      'DATE/TIME': 'PETSA/ORAS',
+      'DETECTION': 'PAGTUKLAS',
+      'Unknown Farm': 'Hindi Kilalang Sakahan',
+      'Location unavailable': 'Hindi magamit ang lokasyon',
+      'Fetching location...': 'Kinukuha ang lokasyon...',
+    },
+    'Bisaya': {
+      'REPORTS': 'MGA REPORT',
+      'No reports found.': 'Walay nakitang mga report.',
+      'STATUS': 'KAHIMTANG',
+      'FARM NAME': 'NGALAN SA UMAHAN',
+      'LOCATION': 'LOKASYON',
+      'DATE/TIME': 'PETSA/ORAS',
+      'DETECTION': 'PAGPANGITA',
+      'Unknown Farm': 'Wala Mailhing Umahan',
+      'Location unavailable': 'Dili magamit ang lokasyon',
+      'Fetching location...': 'Gikuha ang lokasyon...',
+    },
+  };
+
+  @override
+  void initState() {
+    super.initState();
+    _loadLanguagePreference();
+    _notificationManager.initialize().then((_) {
+      if (!_isDisposed) {
+        _listenForNewReports();
+        _listenForNewAlerts();
+      }
+    });
+  }
+
+  void _listenForNewReports() {
+    _notificationManager.getReportsStream(widget.farmId).listen((snapshot) {
+      if (!_isDisposed && mounted) {
+        if (snapshot.docChanges.isNotEmpty) {
+          setState(() {
+            _badgeCount = _notificationManager.getBadgeCount();
+          });
+        }
+      }
+    });
+  }
+
+  void _listenForNewAlerts() {
+    FirebaseFirestore.instance
+        .collection('alerts')
+        .where('farmId', isEqualTo: widget.farmId)
+        .where('isNew', isEqualTo: true)
+        .snapshots()
+        .listen((alertSnapshot) {
+      if (mounted) {
+        setState(() {
+          _hasNewAlerts = alertSnapshot.docs.isNotEmpty;
+        });
+      }
+    });
+  }
+
+  Future<void> _markAlertsAsRead() async {
+    final batch = FirebaseFirestore.instance.batch();
+    final querySnapshot = await FirebaseFirestore.instance
+        .collection('alerts')
+        .where('farmId', isEqualTo: widget.farmId)
+        .where('isNew', isEqualTo: true)
+        .get();
+
+    for (var doc in querySnapshot.docs) {
+      batch.update(doc.reference, {'isNew': false});
+    }
+
+    await batch.commit();
+    setState(() {
+      _hasNewAlerts = false;
+    });
+  }
+
   Future<String> _getLocationDescription(List<dynamic>? coordinates) async {
     if (coordinates != null && coordinates.length == 2) {
       final lat = coordinates[0];
@@ -32,24 +129,34 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
         print('Error fetching location details: $e');
       }
     }
-    return 'Location unavailable';
+    return _getTranslatedText('Location unavailable');
   }
 
   Stream<QuerySnapshot> _getReportsStream() {
-    return FirebaseFirestore.instance
-        .collection('reports')
-        .where('farmId', isEqualTo: widget.farmId)
-        .orderBy('timestamp', descending: true)
-        .snapshots();
+    return _notificationManager.getReportsStream(widget.farmId);
   }
 
-  void _navigateToDetail(BuildContext context, DocumentSnapshot report) {
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (context) => ReportDetailScreen(report: report),
-      ),
-    );
+  void _navigateToDetail(BuildContext context, DocumentSnapshot report) async {
+    // Mark only this specific report as read
+    await FirebaseFirestore.instance
+        .collection('reports')
+        .doc(report.id)
+        .update({'isNew': false});
+
+    // Ensure the report data is not null before navigating
+    if (report.data() != null) {
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => ReportDetailScreen(report: report),
+        ),
+      );
+    } else {
+      // Show an error message if the report data is null
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error: Report data is not available')),
+      );
+    }
   }
 
   Widget _buildStatusIndicator(bool isReplied, String detection) {
@@ -70,6 +177,20 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     }
   }
 
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -87,16 +208,28 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
         ),
         centerTitle: true,
         actions: [
-          IconButton(
-            icon: const Icon(Icons.notifications_none, color: Colors.black),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(
-                  builder: (context) => ReportNotificationScreen(farmId: widget.farmId),
-                ),
-              );
-            },
+          badges.Badge(
+            position: badges.BadgePosition.topEnd(top: 0, end: 3),
+            showBadge: _hasNewAlerts,
+            badgeContent: const Text(
+              '!',
+              style: TextStyle(color: Colors.white, fontSize: 10),
+            ),
+            child: IconButton(
+              icon: const Icon(Icons.notifications_none, color: Colors.black),
+              onPressed: () async {
+                await _markAlertsAsRead();
+                setState(() {
+                  _hasNewAlerts = false;
+                });
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => ReportNotificationScreen(farmId: widget.farmId),
+                  ),
+                );
+              },
+            ),
           ),
         ],
       ),
@@ -104,11 +237,11 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
         padding: const EdgeInsets.symmetric(horizontal: 16),
         child: Column(
           children: [
-            const Padding(
-              padding: EdgeInsets.symmetric(vertical: 20),
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
               child: Text(
-                'REPORTS',
-                style: TextStyle(
+                _getTranslatedText('REPORTS'),
+                style: const TextStyle(
                   fontSize: 24,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
@@ -130,7 +263,7 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
                   }
 
                   if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                    return const Center(child: Text('No reports found.', style: TextStyle(fontSize: 16)));
+                    return Center(child: Text(_getTranslatedText('No reports found.'), style: const TextStyle(fontSize: 16)));
                   }
 
                   final reports = snapshot.data!.docs;
@@ -141,24 +274,27 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
                     itemBuilder: (context, index) {
                       final report = reports[index];
                       final data = report.data() as Map<String, dynamic>;
-                      final timestamp = data['timestamp'] as Timestamp;
-                      final dateTime = DateFormat('MM/dd/yyyy\nh:mm a').format(timestamp.toDate());
+                      final timestamp = data['timestamp'] as Timestamp?;
+                      final dateTime = timestamp != null
+                          ? DateFormat('MM/dd/yyyy\nh:mm a').format(timestamp.toDate())
+                          : 'N/A';
                       final detection = data['detection'] ?? 'Unknown';
-                      final realtime_location = data['realtime_location'] as List<dynamic>?;
+                      final realtimeLocation = data['realtime_location'] as List<dynamic>?;
                       final isReplied = data['isReplied'] as bool? ?? false;
 
                       return FutureBuilder<String>(
-                        future: _getLocationDescription(realtime_location),
+                        future: _getLocationDescription(realtimeLocation),
                         builder: (context, locationSnapshot) {
-                          final locationDescription = locationSnapshot.data ?? 'Fetching location...';
+                          final locationDescription = locationSnapshot.data ?? _getTranslatedText('Fetching location...');
 
                           return GestureDetector(
                             onTap: () => _navigateToDetail(context, report),
                             child: Container(
-                              margin: const EdgeInsets.only(bottom: 8),
+                              margin: const EdgeInsets.symmetric(vertical: 4),
                               decoration: BoxDecoration(
                                 border: Border.all(color: const Color(0xFF40C4FF)),
                                 borderRadius: BorderRadius.circular(8),
+                                color: data['isNew'] == true ? Colors.blue[50] : null,
                               ),
                               child: Row(
                                 children: [
@@ -175,7 +311,7 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
                                           Expanded(
                                             flex: 2,
                                             child: Text(
-                                              data['farmName'] ?? 'Unknown Farm',
+                                              _getTranslatedText(data['farmName'] ?? 'Unknown Farm'),
                                               style: const TextStyle(
                                                 fontSize: 11,
                                                 fontWeight: FontWeight.w500,
@@ -240,12 +376,12 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
-        children: const [
+        children: [
           SizedBox(
             width: 40,
             child: Text(
-              'STATUS',
-              style: TextStyle(
+              _getTranslatedText('STATUS'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -256,8 +392,8 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'FARM NAME',
-              style: TextStyle(
+              _getTranslatedText('FARM NAME'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -267,8 +403,8 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'LOCATION',
-              style: TextStyle(
+              _getTranslatedText('LOCATION'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -278,8 +414,8 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'DATE/TIME',
-              style: TextStyle(
+              _getTranslatedText('DATE/TIME'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -289,8 +425,8 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
           Expanded(
             flex: 2,
             child: Text(
-              'DETECTION',
-              style: TextStyle(
+              _getTranslatedText('DETECTION'),
+              style: const TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.bold,
                 color: Colors.grey,
@@ -300,6 +436,12 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
         ],
       ),
     );
+  }
+
+  @override
+  void dispose() {
+    _isDisposed = true;
+    super.dispose();
   }
 }
 

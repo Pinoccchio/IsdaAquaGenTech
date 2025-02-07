@@ -3,11 +3,11 @@ import 'package:firebase_auth/firebase_auth.dart';
 
 class StaticAccounts {
   static Future<void> initializeAdminAccount() async {
-    final String email = 'isda.mobileapp@gmail.com';
-    final String password = 'ISDAmobapp_1219';
-    final String firstName = 'MARIO';
-    final String middleName = 'JUAN';
-    final String lastName = 'ANDRES';
+    const String email = 'isda.mobileapp@gmail.com';
+    const String password = 'ISDAmobapp_1219';
+    const String firstName = 'MARIO';
+    const String middleName = 'JUAN';
+    const String lastName = 'ANDRES';
 
     try {
       // Check if the admin account already exists in Firestore

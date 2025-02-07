@@ -11,9 +11,9 @@ class FarmDetailScreen extends StatefulWidget {
   final String farmId;
 
   const FarmDetailScreen({
-    Key? key,
+    super.key,
     required this.farmId,
-  }) : super(key: key);
+  });
 
   @override
   _FarmDetailScreenState createState() => _FarmDetailScreenState();
@@ -91,12 +91,12 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
     switch (status) {
       case 'pending':
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
-      case 'virusLikelyDetected':
+      case 'viruslikelydetected':
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed);
-      case 'virusNotLikelyDetected':
+      case 'virusnotlikelydetected':
         return BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
       default:
-        return BitmapDescriptor.defaultMarker; // Default marker color
+        return BitmapDescriptor.defaultMarker;
     }
   }
 
@@ -109,6 +109,7 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: fishTypes.map<Widget>((fishType) {
+        final List<String> types = (fishType['fishTypes'] as List<dynamic>?)?.cast<String>() ?? [];
         return Container(
           margin: const EdgeInsets.only(bottom: 12),
           decoration: BoxDecoration(
@@ -124,8 +125,8 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF40C4FF),
+                decoration: const BoxDecoration(
+                  color: Color(0xFF40C4FF),
                   borderRadius: BorderRadius.only(
                     topLeft: Radius.circular(11),
                     topRight: Radius.circular(11),
@@ -142,22 +143,28 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
               ),
               Padding(
                 padding: const EdgeInsets.all(16),
-                child: Row(
-                  children: [
-                    const Icon(
-                      Icons.water,
-                      color: Color(0xFF40C4FF),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: types.map((type) => Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      children: [
+                        Icon(
+                          type.toLowerCase() == 'shrimps' ? Icons.water : Icons.set_meal,
+                          color: const Color(0xFF40C4FF),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          type,
+                          style: const TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w500,
+                            color: Color(0xFF4A4A4A),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(width: 12),
-                    Text(
-                      fishType['fishType'],
-                      style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w500,
-                        color: Color(0xFF4A4A4A),
-                      ),
-                    ),
-                  ],
+                  )).toList(),
                 ),
               ),
             ],
@@ -242,8 +249,8 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
                         ),
                         child: Text(
                           _farmData!['status'] == 'pending' ? 'Pending' :
-                          _farmData!['status'] == 'virusLikelyDetected' ? 'Virus Likely Detected' :
-                          _farmData!['status'] == 'virusNotLikelyDetected' ? 'Virus Not Likely Detected' :
+                          _farmData!['status'] == 'viruslikelydetected' ? 'Virus Likely Detected' :
+                          _farmData!['status'] == 'virusnotlikelydetected' ? 'Virus Not Likely Detected' :
                           'Inactive',
                           style: const TextStyle(
                             color: Colors.white,
@@ -254,30 +261,39 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 24),
-                  _buildInfoSection(
-                    'Owner Information',
-                    [
-                      'Name: ${_farmData!['firstName']} ${_farmData!['lastName']}',
-                      'Contact: ${_farmData!['contactNumber']}',
-                    ],
-                    const Color(0xFF40C4FF),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildInfoSection(
+                      'Owner Information',
+                      [
+                        'Name: ${_farmData!['firstName']} ${_farmData!['lastName']}',
+                        'Contact: ${_farmData!['contactNumber']}',
+                      ],
+                      const Color(0xFF40C4FF),
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  _buildInfoSection(
-                    'Farm Information',
-                    [
-                      'Number of Cages: ${_farmData!['numberOfCages']}',
-                      'Feed Types: ${_farmData!['feedTypes']}',
-                      'Address: ${_farmData!['address']}',
-                    ],
-                    const Color(0xFF40C4FF),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildInfoSection(
+                      'Farm Information',
+                      [
+                        'Number of Cages: ${_farmData!['numberOfCages']}',
+                        'Feed Types: ${_farmData!['feedTypes']}',
+                        'Address: ${_farmData!['address']}',
+                      ],
+                      const Color(0xFF40C4FF),
+                    ),
                   ),
                   const SizedBox(height: 24),
-                  _buildInfoSection(
-                    'Fish Types',
-                    [],
-                    const Color(0xFF40C4FF),
-                    customContent: _buildFishTypesList(),
+                  SizedBox(
+                    width: double.infinity,
+                    child: _buildInfoSection(
+                      'Fish Types',
+                      [],
+                      const Color(0xFF40C4FF),
+                      customContent: _buildFishTypesList(),
+                    ),
                   ),
                   const SizedBox(height: 24),
                   if (_farmLocation != null) ...[
@@ -348,34 +364,32 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
           ),
         ),
         const SizedBox(height: 12),
-        if (customContent != null)
-          customContent
-        else
-          Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: color.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: color.withOpacity(0.3),
-              ),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: items
-                  .map((item) => Padding(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                child: Text(
-                  item,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    color: Color(0xFF4A4A4A),
-                  ),
-                ),
-              ))
-                  .toList(),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: color.withOpacity(0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: color.withOpacity(0.3),
             ),
           ),
+          child: customContent ?? Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: items
+                .map((item) => Padding(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              child: Text(
+                item,
+                style: const TextStyle(
+                  fontSize: 14,
+                  color: Color(0xFF4A4A4A),
+                ),
+              ),
+            ))
+                .toList(),
+          ),
+        ),
       ],
     );
   }
@@ -384,12 +398,13 @@ class _FarmDetailScreenState extends State<FarmDetailScreen> {
     switch (status) {
       case 'pending':
         return const Color(0xFFFF9800); // Orange
-      case 'virusLikelyDetected':
+      case 'viruslikelydetected':
         return const Color(0xFFF44336); // Red
-      case 'virusNotLikelyDetected':
+      case 'virusnotlikelydetected':
         return const Color(0xFF4CAF50); // Green
       default:
         return const Color(0xFFF44336); // Default to red (inactive)
     }
   }
 }
+

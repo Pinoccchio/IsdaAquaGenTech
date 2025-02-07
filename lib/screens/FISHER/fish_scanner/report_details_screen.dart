@@ -5,20 +5,23 @@ import 'package:intl/intl.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import '../fisher_screens/fisher_container_screen/fisher_container_screen.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ReportDetailsScreen extends StatefulWidget {
-  final String reportId;
   final File imageFile;
   final String detection;
+  final double confidence;
   final Map<String, dynamic> farmData;
 
   const ReportDetailsScreen({
-    Key? key,
-    required this.reportId,
+    super.key,
     required this.imageFile,
     required this.detection,
+    required this.confidence,
     required this.farmData,
-  }) : super(key: key);
+  });
 
   @override
   _ReportDetailsScreenState createState() => _ReportDetailsScreenState();
@@ -31,13 +34,101 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   String _imageUrl = '';
   bool _isUploadingImage = false;
   String? _imageUploadError;
+  bool? _reportToBFAR;
+
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'REPORT': 'ULAT',
+      'ORGANISM': 'ORGANISMO',
+      'FARM NAME': 'PANGALAN NG SAKAHAN',
+      'OWNER': 'MAY-ARI',
+      'CONTACT NUMBER': 'NUMERO NG CONTACT',
+      'FEED TYPES': 'MGA URI NG PAGKAIN',
+      'DATE AND TIME REPORTED': 'PETSA AT ORAS NG PAG-ULAT',
+      'LOCATION': 'LOKASYON',
+      'VIEW MESSAGE ALERT': 'TINGNAN ANG ALERTO NG MENSAHE',
+      'MESSAGE': 'MENSAHE',
+      'NEED IMMEDIATE ACTION!': 'KAILANGAN NG AGARANG AKSYON!',
+      'No immediate action required': 'Walang kailangang agarang aksyon',
+      'SEND REPORT': 'MAGPADALA NG ULAT',
+      'New Report Alert': 'Bagong Alerto ng Ulat',
+      'A new report for': 'Isang bagong ulat para sa',
+      'has been sent.': 'ay naipadala na.',
+      'Immediate action may be required.': 'Maaaring kailanganin ng agarang aksyon.',
+      'No immediate action is required.': 'Walang kailangang agarang aksyon.',
+      'Failed to send alert and store message': 'Hindi nagawa ang pagpapadala ng alerto at pag-iimbak ng mensahe',
+      'Fetching location...': 'Kinukuha ang lokasyon...',
+      'Location details not available': 'Hindi magamit ang mga detalye ng lokasyon',
+      'Error fetching location details': 'Error sa pagkuha ng mga detalye ng lokasyon',
+      'Location data not available': 'Hindi magamit ang datos ng lokasyon',
+      'Fetching timestamp...': 'Kinukuha ang timestamp...',
+      'Failed to upload image': 'Hindi na-upload ang larawan',
+      'Retry Upload': 'Subukang Mag-upload Muli',
+      'No Image Available': 'Walang Magagamit na Larawan',
+      'Do you want to report it to Bureau of Fisheries and Aquatic Resources (BFAR)?': 'Gusto mo bang ireport ito sa Bureau of Fisheries and Aquatic Resources (BFAR)?',
+      'YES': 'OO',
+      'NO': 'HINDI',
+      'REPORT': 'ULAT'
+    },
+    'Bisaya': {
+      'REPORT': 'REPORT',
+      'ORGANISM': 'ORGANISMO',
+      'FARM NAME': 'NGALAN SA UMAHAN',
+      'OWNER': 'TAG-IYA',
+      'CONTACT NUMBER': 'NUMERO SA KONTAK',
+      'FEED TYPES': 'MGA MATANG SA PAGKAON',
+      'DATE AND TIME REPORTED': 'PETSA UG ORAS SA PAG-REPORT',
+      'LOCATION': 'LOKASYON',
+      'VIEW MESSAGE ALERT': 'TAN-AWA ANG ALERTO SA MENSAHE',
+      'MESSAGE': 'MENSAHE',
+      'NEED IMMEDIATE ACTION!': 'KINAHANGLAN UG DIHA-DIHA NGA AKSYON!',
+      'No immediate action required': 'Walay gikinahanglan nga diha-diha nga aksyon',
+      'SEND REPORT': 'IPADALA ANG REPORT',
+      'New Report Alert': 'Bag-ong Alerto sa Report',
+      'A new report for': 'Usa ka bag-ong report alang sa',
+      'has been sent.': 'gipadala na.',
+      'Immediate action may be required.': 'Mahimong gikinahanglan ang diha-diha nga aksyon.',
+      'No immediate action is required.': 'Walay gikinahanglan nga diha-diha nga aksyon.',
+      'Failed to send alert and store message': 'Napakyas sa pagpadala sa alerto ug pagtipig sa mensahe',
+      'Fetching location...': 'Gikuha ang lokasyon...',
+      'Location details not available': 'Wala magamit ang mga detalye sa lokasyon',
+      'Error fetching location details': 'Sayup sa pagkuha sa mga detalye sa lokasyon',
+      'Location data not available': 'Wala magamit ang datos sa lokasyon',
+      'Fetching timestamp...': 'Gikuha ang timestamp...',
+      'Failed to upload image': 'Napakyas sa pag-upload sa hulagway',
+      'Retry Upload': 'Sulayi Pag-usab ang Pag-upload',
+      'No Image Available': 'Walay Magamit nga Hulagway',
+      'Do you want to report it to Bureau of Fisheries and Aquatic Resources (BFAR)?': 'Gusto ba nimo ireport kini sa Bureau of Fisheries and Aquatic Resources (BFAR)?',
+      'YES': 'OO',
+      'NO': 'DILI',
+      'REPORT': 'ULAT'
+    },
+  };
+
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   @override
   void initState() {
     super.initState();
+    _initializeNotifications();
     _getLocationDescription();
-    _fetchReportData();
     _uploadImage();
+    _loadLanguagePreference();
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
   }
 
   Future<void> _getLocationDescription() async {
@@ -54,17 +145,17 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
           });
         } else {
           setState(() {
-            _locationDescription = 'Location details not available';
+            _locationDescription = _getTranslatedText('Location details not available');
           });
         }
       } catch (e) {
         setState(() {
-          _locationDescription = 'Error fetching location details';
+          _locationDescription = _getTranslatedText('Error fetching location details');
         });
       }
     } else {
       setState(() {
-        _locationDescription = 'Location data not available';
+        _locationDescription = _getTranslatedText('Location data not available');
       });
     }
   }
@@ -77,7 +168,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
       final ref = FirebaseStorage.instance
           .ref()
           .child('report_images')
-          .child('${widget.reportId}.jpg');
+          .child('${widget.farmData['farmId']}.jpg'); // Updated image path
       await ref.putFile(widget.imageFile);
       final url = await ref.getDownloadURL();
       setState(() {
@@ -88,12 +179,12 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
       print('Error uploading image: $e');
       setState(() {
         _isUploadingImage = false;
-        _imageUploadError = 'Failed to upload image';
+        _imageUploadError = _getTranslatedText('Failed to upload image');
       });
     }
   }
 
-  Future<void> _saveAlert() async {
+  Future<void> _createReport() async {
     if (_isSendingAlert || _isUploadingImage) return;
 
     setState(() {
@@ -108,16 +199,38 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
       final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
 
-      // Ensure the image is uploaded before saving the alert
+      // Ensure the image is uploaded before saving the report
       if (_imageUrl.isEmpty) {
         await _uploadImage();
       }
 
-      // Save the alert in the alerts collection
-      final alertRef = await FirebaseFirestore.instance
-          .collection('alerts')
-          .add({
-        'reportId': widget.reportId,
+      // Create report document
+      final reportRef = await FirebaseFirestore.instance.collection('reports').add({
+        'detection': widget.detection,
+        'confidence': widget.confidence,
+        'timestamp': FieldValue.serverTimestamp(),
+        'farmId': farmId,
+        'farmName': widget.farmData['farmName'] ?? 'Unknown',
+        'ownerFirstName': widget.farmData['firstName'] ?? 'Unknown',
+        'ownerLastName': widget.farmData['lastName'] ?? 'Unknown',
+        'location': {
+          'barangay': widget.farmData['barangay'] ?? 'Unknown',
+          'municipality': widget.farmData['municipality'] ?? 'Unknown',
+          'province': widget.farmData['province'] ?? 'Unknown',
+          'region': widget.farmData['region'] ?? 'Unknown',
+        },
+        'realtime_location': widget.farmData['realtime_location'] ?? GeoPoint(0, 0),
+        'contactNumber': widget.farmData['contactNumber'] ?? 'Unknown',
+        'feedTypes': widget.farmData['feedTypes'] ?? 'Unknown',
+        'isNew': true,
+        'isNewForAdmin': true,
+        'reportedToBFAR': _reportToBFAR,
+        'imageUrl': _imageUrl,
+      });
+
+      // Create alert document
+      final alertRef = await FirebaseFirestore.instance.collection('alerts').add({
+        'reportId': reportRef.id,
         'farmName': widget.farmData['farmName'] ?? 'Unknown',
         'ownerFirstName': widget.farmData['firstName'] ?? 'Unknown',
         'ownerLastName': widget.farmData['lastName'] ?? 'Unknown',
@@ -132,13 +245,16 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         'contactNumber': widget.farmData['contactNumber'] ?? 'Unknown',
         'feedTypes': widget.farmData['feedTypes'] ?? 'Unknown',
         'imageUrl': _imageUrl,
+        'isNew': true,
+        'isNewForAdmin': true,
+        'isNewMessageFromAdmin': false,
+        'reportedToBFAR': _reportToBFAR,
       });
 
-      // Store the alert as a message
-      await FirebaseFirestore.instance
-          .collection('messages')
-          .add({
+      // Create message document
+      await FirebaseFirestore.instance.collection('messages').add({
         'alertId': alertRef.id,
+        'reportId': reportRef.id,
         'farmId': farmId,
         'content': 'Alert: ${widget.detection} at ${widget.farmData['farmName'] ?? 'Unknown Farm'}',
         'timestamp': FieldValue.serverTimestamp(),
@@ -158,28 +274,29 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         },
         'imageUrl': _imageUrl,
         'source': 'fisher',
+        'isNew': true,
+        'isNewForAdmin': true,
+        'isNewMessageFromAdmin': false,
+        'reportedToBFAR': _reportToBFAR,
       });
 
-      if (!mounted) return;
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Alert sent and message stored successfully'),
-          backgroundColor: Colors.green,
-        ),
+      // Show notification
+      await _showNotification(
+          _getTranslatedText('New Report Alert'),
+          '${_getTranslatedText('A new report for')} ${widget.detection} ${_getTranslatedText('at')} ${widget.farmData['farmName'] ?? 'Unknown Farm'} ${_getTranslatedText('has been sent.')} ${isVirusLikelyDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
       );
 
       // Navigate to FisherContainerScreen and remove all previous routes
+      if (!mounted) return;
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => FisherContainerScreen(farmId: farmId)),
             (Route<dynamic> route) => false,
       );
     } catch (e) {
       if (!mounted) return;
-
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Failed to send alert and store message: $e'),
+          content: Text('${_getTranslatedText('Failed to create report')}: $e'),
           backgroundColor: Colors.red,
         ),
       );
@@ -205,7 +322,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          label,
+          _getTranslatedText(label),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -234,15 +351,6 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     );
   }
 
-  String _formatTimestamp(dynamic timestamp) {
-    if (timestamp is Timestamp) {
-      return DateFormat('MMMM d, yyyy \'at\' h:mm a').format(timestamp.toDate());
-    } else if (timestamp is DateTime) {
-      return DateFormat('MMMM d, yyyy \'at\' h:mm a').format(timestamp);
-    } else {
-      return 'Timestamp not available';
-    }
-  }
 
   Future<void> _showMessageAlert() async {
     final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
@@ -250,133 +358,248 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
     await showDialog(
       context: context,
       builder: (BuildContext context) {
-        return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Container(
-            padding: const EdgeInsets.all(20),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Text(
-                  'MESSAGE',
-                  style: TextStyle(
-                    fontSize: 18,
-                    fontWeight: FontWeight.bold,
-                    letterSpacing: 1.2,
-                  ),
-                ),
-                const SizedBox(height: 20),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.blue.shade200),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            return Dialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(16),
+              ),
+              child: SingleChildScrollView(
+                child: Container(
+                  padding: const EdgeInsets.all(24),
                   child: Column(
+                    mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        '${widget.detection.toUpperCase()} AT ${widget.farmData['farmName'] ?? 'UNKNOWN FARM'} (OWNER: ${widget.farmData['firstName'] ?? ''} ${widget.farmData['lastName'] ?? ''})',
+                        _getTranslatedText('REPORT'),
                         style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
+                          fontSize: 24,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF40C4FF),
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'LOCATION: $_locationDescription',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF40C4FF)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              '${widget.detection.toUpperCase()} ${_getTranslatedText('AT')} ${widget.farmData['farmName'] ?? 'UNKNOWN FARM'}',
+                              style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${_getTranslatedText('OWNER')}: ${widget.farmData['firstName'] ?? ''} ${widget.farmData['lastName'] ?? ''}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${_getTranslatedText('LOCATION')}: $_locationDescription',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              '${_getTranslatedText('DATE AND TIME REPORTED')}: ${_formatTimestamp(DateTime.now())}',
+                              style: const TextStyle(fontSize: 14),
+                            ),
+                            const SizedBox(height: 16),
+                            Container(
+                              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
+                              decoration: BoxDecoration(
+                                color: isVirusLikelyDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Text(
+                                isVirusLikelyDetected
+                                    ? _getTranslatedText('NEED IMMEDIATE ACTION!')
+                                    : _getTranslatedText('No immediate action required'),
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'TIMESTAMP: $_timestamp',
-                        style: const TextStyle(
-                          fontSize: 14,
-                          height: 1.5,
+                      const SizedBox(height: 24),
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          border: Border.all(color: const Color(0xFF40C4FF)),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Text(
+                              _getTranslatedText('Do you want to report it to Bureau of Fisheries and Aquatic Resources (BFAR)?'),
+                              textAlign: TextAlign.center,
+                              style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            ),
+                            const SizedBox(height: 16),
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _reportToBFAR = true;
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _reportToBFAR == true ? const Color(0xFF40C4FF) : Colors.grey[300],
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  ),
+                                  child: Text(
+                                    _getTranslatedText('YES'),
+                                    style: TextStyle(
+                                      color: _reportToBFAR == true ? Colors.white : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                                ElevatedButton(
+                                  onPressed: () {
+                                    setState(() {
+                                      _reportToBFAR = false;
+                                    });
+                                  },
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: _reportToBFAR == false ? Colors.red : Colors.grey[300],
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                                    padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                                  ),
+                                  child: Text(
+                                    _getTranslatedText('NO'),
+                                    style: TextStyle(
+                                      color: _reportToBFAR == false ? Colors.white : Colors.black87,
+                                      fontWeight: FontWeight.bold,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
                         ),
                       ),
-                      const SizedBox(height: 16),
-                      if (isVirusLikelyDetected)
-                        const Text(
-                          'NEED IMMEDIATE ACTION!',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.red,
+                      const SizedBox(height: 24),
+                      SizedBox(
+                        width: double.infinity,
+                        child: ElevatedButton(
+                          onPressed: _reportToBFAR == null
+                              ? null
+                              : () {
+                            Navigator.of(context).pop();
+                            _createReport();
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: const Color(0xFF00BFA5),
+                            padding: const EdgeInsets.symmetric(vertical: 16),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(24),
+                            ),
                           ),
-                        )
-                      else
-                        const Text(
-                          'No immediate action required',
-                          style: TextStyle(
-                            fontWeight: FontWeight.bold,
-                            color: Colors.green,
+                          child: Text(
+                            _getTranslatedText('SEND REPORT'),
+                            style: const TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
                           ),
                         ),
+                      ),
                     ],
                   ),
                 ),
-                const SizedBox(height: 20),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isSendingAlert ? null : _saveAlert,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF00BFA5),
-                      padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(24),
-                      ),
-                    ),
-                    child: _isSendingAlert
-                        ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                        : const Text(
-                      'SEND ALERT',
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
+              ),
+            );
+          },
         );
       },
     );
   }
 
-  Future<void> _fetchReportData() async {
-    try {
-      DocumentSnapshot reportDoc = await FirebaseFirestore.instance
-          .collection('reports')
-          .doc(widget.reportId)
-          .get();
+  String _formatTimestamp(DateTime timestamp) {
+    return DateFormat('MMMM d, yyyy \'at\' h:mm a').format(timestamp);
+  }
 
-      if (reportDoc.exists) {
-        Map<String, dynamic> data = reportDoc.data() as Map<String, dynamic>;
-        setState(() {
-          _timestamp = _formatTimestamp(data['timestamp']);
-        });
-      }
-    } catch (e) {
-      print('Error fetching report data: $e');
-      setState(() {
-        _timestamp = 'Timestamp not available';
-      });
-    }
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String title, String body) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'farm_reports_channel',
+      'Farm Reports Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      _getTranslatedText(title),
+      _getTranslatedText(body),
+      platformChannelSpecifics,
+    );
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
@@ -407,7 +630,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
             children: [
               Center(
                 child: Text(
-                  'REPORT',
+                  _getTranslatedText('REPORT'),
                   style: const TextStyle(
                     fontSize: 24,
                     fontWeight: FontWeight.bold,
@@ -438,36 +661,32 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                         ),
                       )
                           : _imageUrl.isNotEmpty
-                          ? Image.network(
-                        _imageUrl,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
-                        loadingBuilder: (context, child, loadingProgress) {
-                          if (loadingProgress == null) return child;
-                          return Center(
-                            child: CircularProgressIndicator(
-                              value: loadingProgress.expectedTotalBytes != null
-                                  ? loadingProgress.cumulativeBytesLoaded /
-                                  loadingProgress.expectedTotalBytes!
-                                  : null,
-                            ),
-                          );
-                        },
-                        errorBuilder: (context, error, stackTrace) {
-                          return const Center(
+                          ? GestureDetector(
+                        onTap: () => _showFullScreenImage(context, _imageUrl),
+                        child: CachedNetworkImage(
+                          imageUrl: _imageUrl,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => const Center(
+                            child: CircularProgressIndicator(),
+                          ),
+                          errorWidget: (context, url, error) => const Center(
                             child: Text(
                               'Failed to load image',
                               style: TextStyle(color: Colors.red),
                             ),
-                          );
-                        },
+                          ),
+                        ),
                       )
-                          : Image.file(
-                        widget.imageFile,
-                        height: 200,
-                        width: double.infinity,
-                        fit: BoxFit.cover,
+                          : GestureDetector(
+                        onTap: () => _showFullScreenImage(context, widget.imageFile.path),
+                        child: Image.file(
+                          widget.imageFile,
+                          height: 200,
+                          width: double.infinity,
+                          fit: BoxFit.cover,
+                        ),
                       ),
                     ),
                     Container(
@@ -499,9 +718,9 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                             ),
                           ),
                           const SizedBox(height: 4),
-                          const Text(
-                            'ORGANISM',
-                            style: TextStyle(
+                          Text(
+                            _getTranslatedText('ORGANISM'),
+                            style: const TextStyle(
                               fontSize: 12,
                               color: Colors.black54,
                             ),
@@ -520,7 +739,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                     });
                     _uploadImage();
                   },
-                  child: const Text('Retry Upload'),
+                  child: Text(_getTranslatedText('Retry Upload')),
                 ),
               const SizedBox(height: 8),
               Center(
@@ -550,7 +769,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
               _buildTextField('OWNER', '${widget.farmData['firstName'] ?? ''} ${widget.farmData['lastName'] ?? ''}'),
               _buildTextField('CONTACT NUMBER', widget.farmData['contactNumber'] ?? ''),
               _buildTextField('FEED TYPES', widget.farmData['feedTypes'] ?? ''),
-              _buildTextField('DATE AND TIME REPORTED', _timestamp),
+              _buildTextField('DATE AND TIME REPORTED', _formatTimestamp(DateTime.now())),
               _buildTextField('LOCATION', _locationDescription),
               const SizedBox(height: 16),
               SizedBox(
@@ -564,9 +783,9 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                       borderRadius: BorderRadius.circular(24),
                     ),
                   ),
-                  child: const Text(
-                    'VIEW MESSAGE ALERT',
-                    style: TextStyle(
+                  child: Text(
+                    _getTranslatedText('REPORT'),
+                    style: const TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
                       color: Colors.white,

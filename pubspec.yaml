@@ -37,6 +37,12 @@ dependencies:
   location: ^6.0.2
   image_picker: ^0.8.9
   flutter_tflite: ^1.0.1
+  flutter_news_service: ^1.0.4
+  badges: ^3.1.2
+  excel: ^4.0.6
+  device_info_plus: ^10.1.2
+  open_file: ^3.5.4
+  path: ^1.9.0
 
 
 dev_dependencies:

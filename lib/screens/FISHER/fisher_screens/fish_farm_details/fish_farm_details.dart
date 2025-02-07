@@ -5,16 +5,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import 'package:location/location.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'dart:async';
-
+import 'package:shared_preferences/shared_preferences.dart';
 
 class FishFarmDetails extends StatefulWidget {
   final String farmId;
 
   const FishFarmDetails({
-    Key? key,
+    super.key,
     required this.farmId,
-  }) : super(key: key);
+  });
 
   @override
   State<FishFarmDetails> createState() => _FishFarmDetailsState();
@@ -38,6 +39,47 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
   LatLng? _farmLocation;
   Set<Marker> _markers = {};
 
+  // Local notifications plugin
+  final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  String _selectedLanguage = 'English';
+  final Map<String, Map<String, String>> _translations = {
+    'Filipino': {
+      'FARM DETAILS': 'MGA DETALYE NG SAKAHAN',
+      'FARM NAME': 'PANGALAN NG SAKAHAN',
+      'OWNER': 'MAY-ARI',
+      'CONTACT NUMBER': 'NUMERO NG CONTACT',
+      'FEED TYPES': 'MGA URI NG PAGKAIN',
+      'LOCATION': 'LOKASYON',
+      'FISH TYPES': 'MGA URI NG ISDA',
+      'No fish types registered': 'Walang nakarehistrong uri ng isda',
+      'Add New Cage': 'Magdagdag ng Bagong Kulungan',
+      'SUBMIT REQUEST': 'ISUMITE ANG KAHILINGAN',
+      'REQUEST EDIT': 'HUMILING NG PAG-EDIT',
+      'Edit request submitted successfully': 'Matagumpay na naisumite ang kahilingan sa pag-edit',
+      'Error submitting edit request': 'Error sa pagsusumite ng kahilingan sa pag-edit',
+      'This field is required': 'Kinakailangan ang patlang na ito',
+      'Location not available': 'Hindi available ang lokasyon',
+    },
+    'Bisaya': {
+      'FARM DETAILS': 'MGA DETALYE SA UMAHAN',
+      'FARM NAME': 'NGALAN SA UMAHAN',
+      'OWNER': 'TAG-IYA',
+      'CONTACT NUMBER': 'NUMERO SA KONTAK',
+      'FEED TYPES': 'MGA MATANG SA PAGKAON',
+      'LOCATION': 'LOKASYON',
+      'FISH TYPES': 'MGA MATANG SA ISDA',
+      'No fish types registered': 'Walay nakalista nga mga matang sa isda',
+      'Add New Cage': 'Pagdugang og Bag-ong Tangkal',
+      'SUBMIT REQUEST': 'ISUMITE ANG HANGYO',
+      'REQUEST EDIT': 'HANGYO OG PAG-USAB',
+      'Edit request submitted successfully': 'Malampuson nga naisumite ang hangyo sa pag-usab',
+      'Error submitting edit request': 'Sayup sa pagsumite sa hangyo sa pag-usab',
+      'This field is required': 'Kinahanglan kini nga field',
+      'Location not available': 'Dili magamit ang lokasyon',
+    },
+  };
+
   @override
   void initState() {
     super.initState();
@@ -47,6 +89,8 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     _feedTypesController = TextEditingController();
     _locationController = TextEditingController();
     _loadFarmData();
+    _initializeNotifications();
+    _loadLanguagePreference();
   }
 
   @override
@@ -57,6 +101,33 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     _feedTypesController.dispose();
     _locationController.dispose();
     super.dispose();
+  }
+
+  Future<void> _initializeNotifications() async {
+    const AndroidInitializationSettings initializationSettingsAndroid =
+    AndroidInitializationSettings('@mipmap/ic_launcher');
+    const InitializationSettings initializationSettings = InitializationSettings(
+      android: initializationSettingsAndroid,
+    );
+    await flutterLocalNotificationsPlugin.initialize(initializationSettings);
+  }
+
+  Future<void> _showNotification(String farmName) async {
+    const AndroidNotificationDetails androidPlatformChannelSpecifics =
+    AndroidNotificationDetails(
+      'farm_registration_channel',
+      'Farm Registration Notifications',
+      importance: Importance.max,
+      priority: Priority.high,
+    );
+    const NotificationDetails platformChannelSpecifics =
+    NotificationDetails(android: androidPlatformChannelSpecifics);
+    await flutterLocalNotificationsPlugin.show(
+      0,
+      'Edit Request Submitted',
+      'Your edit request for $farmName has been submitted successfully.',
+      platformChannelSpecifics,
+    );
   }
 
   Future<void> _loadFarmData() async {
@@ -140,30 +211,67 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     }
   }
 
-
   Future<void> _requestEdit() async {
     if (!_formKey.currentState!.validate()) return;
 
     try {
-      await FirebaseFirestore.instance
+      // Split the owner name into firstName and lastName
+      List<String> nameParts = _ownerController.text.split(' ');
+      String firstName = nameParts.first;
+      String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
+
+      // Add to edit_requests collection
+      DocumentReference editRequestRef = await FirebaseFirestore.instance
           .collection('edit_requests')
           .add({
         'farmId': widget.farmId,
         'requestedChanges': {
           'farmName': _farmNameController.text,
-          'owner': _ownerController.text,
+          'firstName': firstName,
+          'lastName': lastName,
           'contactNumber': _contactNumberController.text,
           'feedTypes': _feedTypesController.text,
           'location': _locationController.text,
-          'fishTypes': _fishTypes, // Include fish types in the request
+          'fishTypes': _fishTypes,
         },
         'status': 'pending',
         'timestamp': FieldValue.serverTimestamp(),
+        'isNewForAdmin': true,
+        'isNew': true,
       });
+
+      // Add to messages collection
+      await FirebaseFirestore.instance
+          .collection('messages')
+          .add({
+        'farmId': widget.farmId,
+        'timestamp': FieldValue.serverTimestamp(),
+        'source': 'fisher',
+        'replyMessage': 'Edit request submitted for ${_farmNameController.text}',
+        'isNew': true,
+        'isNewForAdmin': true,
+        'isVirusLikelyDetected': false,
+        'requestedChanges': {
+          'farmName': _farmNameController.text,
+          'firstName': firstName,
+          'lastName': lastName,
+          'contactNumber': _contactNumberController.text,
+          'feedTypes': _feedTypesController.text,
+          'location': _locationController.text,
+          'fishTypes': _fishTypes,
+        },
+        'status': 'pending',
+        'editRequestId': editRequestRef.id,
+      });
+
+      await _showNotification(_farmNameController.text);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Edit request submitted successfully')),
+          SnackBar(
+            content: Text(_getTranslatedText('Edit request submitted successfully')),
+            backgroundColor: Colors.green, // Green for success
+          ),
         );
         setState(() {
           _isEditing = false;
@@ -173,7 +281,10 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
       print('Error submitting edit request: $e');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Error submitting edit request')),
+          SnackBar(
+            content: Text(_getTranslatedText('Error submitting edit request')),
+            backgroundColor: Colors.red, // Red for error
+          ),
         );
       }
     }
@@ -184,7 +295,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
       crossAxisAlignment: CrossAxisAlignment.center,
       children: [
         Text(
-          label,
+          _getTranslatedText(label),
           style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
@@ -217,7 +328,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
             ),
             validator: (value) {
               if (value == null || value.isEmpty) {
-                return 'This field is required';
+                return _getTranslatedText('This field is required');
               }
               return null;
             },
@@ -228,19 +339,17 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     );
   }
 
-  void _updateFishType(int index, String newFishType) {
-    if (_availableFishTypes.contains(newFishType)) {
-      setState(() {
-        _fishTypes[index]['fishType'] = newFishType;
-      });
-    }
+  void _updateFishType(int index, List<String> newFishTypes) {
+    setState(() {
+      _fishTypes[index]['fishTypes'] = newFishTypes;
+    });
   }
 
   void _addNewFishType() {
     setState(() {
       _fishTypes.add({
         'cageNumber': _fishTypes.length + 1,
-        'fishType': _availableFishTypes[0],
+        'fishTypes': [_availableFishTypes[0]],
       });
     });
   }
@@ -259,9 +368,9 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'FISH TYPES',
-          style: TextStyle(
+        Text(
+          _getTranslatedText('FISH TYPES'),
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             letterSpacing: 1.2,
@@ -281,12 +390,12 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
           child: Column(
             children: [
               if (_fishTypes.isEmpty && !_isEditing)
-                const Padding(
-                  padding: EdgeInsets.all(16),
+                Padding(
+                  padding: const EdgeInsets.all(16),
                   child: Text(
-                    'No fish types registered',
+                    _getTranslatedText('No fish types registered'),
                     textAlign: TextAlign.center,
-                    style: TextStyle(
+                    style: const TextStyle(
                       fontSize: 14,
                       color: Colors.black54,
                     ),
@@ -294,6 +403,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                 ),
               ...List.generate(_fishTypes.length, (index) {
                 final fishType = _fishTypes[index];
+                final List<String> selectedTypes = List<String>.from(fishType['fishTypes'] ?? []);
                 return Padding(
                   padding: const EdgeInsets.all(16),
                   child: Row(
@@ -308,25 +418,28 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                         ),
                       ),
                       if (_isEditing)
-                        DropdownButton<String>(
-                          value: _availableFishTypes.contains(fishType['fishType'])
-                              ? fishType['fishType']
-                              : _availableFishTypes[0],
-                          items: _availableFishTypes.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
+                        Wrap(
+                          spacing: 8,
+                          children: _availableFishTypes.map((type) {
+                            return FilterChip(
+                              label: Text(type),
+                              selected: selectedTypes.contains(type),
+                              onSelected: (bool selected) {
+                                setState(() {
+                                  if (selected) {
+                                    selectedTypes.add(type);
+                                  } else {
+                                    selectedTypes.remove(type);
+                                  }
+                                  _updateFishType(index, selectedTypes);
+                                });
+                              },
                             );
                           }).toList(),
-                          onChanged: (String? newValue) {
-                            if (newValue != null) {
-                              _updateFishType(index, newValue);
-                            }
-                          },
                         )
                       else
                         Text(
-                          fishType['fishType'],
+                          selectedTypes.join(', '),
                           style: const TextStyle(
                             fontSize: 14,
                             color: Colors.black87,
@@ -346,12 +459,12 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                   padding: const EdgeInsets.all(16),
                   child: ElevatedButton(
                     onPressed: _addNewFishType,
-                    child: const Text(
-                      'Add New Cage',
-                      style: TextStyle(color: Colors.white), // Set text color to white
-                    ),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF40C4FF),
+                    ),
+                    child: Text(
+                      _getTranslatedText('Add New Cage'),
+                      style: const TextStyle(color: Colors.white),
                     ),
                   ),
                 ),
@@ -367,9 +480,9 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text(
-          'LOCATION',
-          style: TextStyle(
+        Text(
+          _getTranslatedText('LOCATION'),
+          style: const TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w500,
             letterSpacing: 1.2,
@@ -407,13 +520,69 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                 Factory<OneSequenceGestureRecognizer>(() => EagerGestureRecognizer()),
               },
             )
-                : const Center(child: Text('Location not available')),
+                : Center(child: Text(_getTranslatedText('Location not available'))),
           ),
         ),
         const SizedBox(height: 16),
       ],
     );
   }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  String _getTranslatedText(String key) {
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return _translations[_selectedLanguage]?[key] ?? key;
+  }
+
+  void _showFullScreenImage(BuildContext context, String imageUrl) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          backgroundColor: Colors.transparent,
+          insetPadding: EdgeInsets.zero,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              GestureDetector(
+                onTap: () => Navigator.of(context).pop(),
+                child: InteractiveViewer(
+                  panEnabled: true,
+                  minScale: 0.5,
+                  maxScale: 4,
+                  child: CachedNetworkImage(
+                    imageUrl: imageUrl,
+                    fit: BoxFit.contain,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
+                    ),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: 16,
+                right: 16,
+                child: IconButton(
+                  icon: const Icon(Icons.close, color: Colors.white),
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -454,40 +623,39 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
               crossAxisAlignment: CrossAxisAlignment.center,
               children: [
                 const SizedBox(height: 24),
-
-                // Farm Details Title
-                const Text(
-                  'FARM DETAILS',
-                  style: TextStyle(
+                Text(
+                  _getTranslatedText('FARM DETAILS'),
+                  style: const TextStyle(
                     fontSize: 20,
                     fontWeight: FontWeight.w600,
                     letterSpacing: 1.2,
                     color: Colors.black87,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 // Farm Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: _pondImageUrl != null
-                      ? CachedNetworkImage(
-                    imageUrl: _pondImageUrl!,
-                    width: double.infinity,
-                    height: 180,
-                    fit: BoxFit.cover,
-                    placeholder: (context, url) => Container(
-                      color: Colors.grey[200],
-                      child: const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                    ),
-                    errorWidget: (context, url, error) => Image.asset(
-                      'lib/assets/images/primary-logo.png',
+                      ? GestureDetector(
+                    onTap: () => _showFullScreenImage(context, _pondImageUrl!),
+                    child: CachedNetworkImage(
+                      imageUrl: _pondImageUrl!,
                       width: double.infinity,
                       height: 180,
                       fit: BoxFit.cover,
+                      placeholder: (context, url) => Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: CircularProgressIndicator(),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => Image.asset(
+                        'lib/assets/images/primary-logo.png',
+                        width: double.infinity,
+                        height: 180,
+                        fit: BoxFit.cover,
+                      ),
                     ),
                   )
                       : Image.asset(
@@ -497,9 +665,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                     fit: BoxFit.cover,
                   ),
                 ),
-
                 const SizedBox(height: 24),
-
                 // Farm Information Fields
                 _buildInfoField('FARM NAME', _farmNameController, enabled: _isEditing),
                 _buildInfoField('OWNER', _ownerController, enabled: _isEditing),
@@ -507,9 +673,8 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                 _buildInfoField('FEED TYPES', _feedTypesController, enabled: _isEditing),
                 _buildInfoField('LOCATION', _locationController, enabled: _isEditing),
                 _buildFishTypesList(),
-                _buildMap(), // Add the map widget
+                _buildMap(),
                 const SizedBox(height: 32),
-
                 // Edit/Submit Button
                 SizedBox(
                   width: double.infinity,
@@ -533,7 +698,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                       elevation: 0,
                     ),
                     child: Text(
-                      _isEditing ? 'SUBMIT REQUEST' : 'REQUEST EDIT',
+                      _getTranslatedText(_isEditing ? 'SUBMIT REQUEST' : 'REQUEST EDIT'),
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w600,
@@ -542,7 +707,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                     ),
                   ),
                 ),
-
                 const SizedBox(height: 32),
               ],
             ),

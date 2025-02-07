@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../../../../../components/theme/custom_text_style.dart';
 import '../philippines_rpcmb.dart';
 
 typedef DropdownItemBuilder<T> = DropdownMenuItem<T> Function(BuildContext context, T value);
@@ -7,14 +6,14 @@ typedef SelectedItemBuilder<T> = Widget Function(BuildContext context, T value);
 
 class _PhilippineDropdownView<T> extends StatelessWidget {
   const _PhilippineDropdownView({
-    Key? key,
+    super.key,
     required this.choices,
     required this.onChanged,
     this.value,
     required this.itemBuilder,
     required this.hint,
     required this.selectedItemBuilder,
-  }) : super(key: key);
+  });
 
   final List<T> choices;
   final ValueChanged<T?> onChanged;
@@ -69,12 +68,12 @@ class _PhilippineDropdownView<T> extends StatelessWidget {
 
 class PhilippineRegionDropdownView extends StatelessWidget {
   const PhilippineRegionDropdownView({
-    Key? key,
+    super.key,
     this.regions = philippineRegions,
     required this.onChanged,
     this.value,
     this.itemBuilder,
-  }) : super(key: key);
+  });
 
   final List<Region> regions;
   final ValueChanged<Region?> onChanged;
@@ -90,9 +89,9 @@ class PhilippineRegionDropdownView extends StatelessWidget {
       itemBuilder: (BuildContext context, e) {
         return itemBuilder?.call(context, e) ?? DropdownMenuItem(value: e, child: Text(e.regionName));
       },
-      hint: Text(
+      hint: const Text(
         'SELECT REGION',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.grey,
           fontSize: 14,
           letterSpacing: 1.2,
@@ -116,12 +115,12 @@ class PhilippineRegionDropdownView extends StatelessWidget {
 
 class PhilippineProvinceDropdownView extends StatelessWidget {
   const PhilippineProvinceDropdownView({
-    Key? key,
+    super.key,
     required this.provinces,
     required this.onChanged,
     this.value,
     this.itemBuilder,
-  }) : super(key: key);
+  });
 
   final List<Province> provinces;
   final Province? value;
@@ -137,9 +136,9 @@ class PhilippineProvinceDropdownView extends StatelessWidget {
       itemBuilder: (BuildContext context, e) {
         return itemBuilder?.call(context, e) ?? DropdownMenuItem(value: e, child: Text(e.name));
       },
-      hint: Text(
+      hint: const Text(
         'SELECT PROVINCE',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.grey,
           fontSize: 14,
           letterSpacing: 1.2,
@@ -163,12 +162,12 @@ class PhilippineProvinceDropdownView extends StatelessWidget {
 
 class PhilippineMunicipalityDropdownView extends StatelessWidget {
   const PhilippineMunicipalityDropdownView({
-    Key? key,
+    super.key,
     required this.municipalities,
     required this.onChanged,
     this.value,
     this.itemBuilder,
-  }) : super(key: key);
+  });
 
   final List<Municipality> municipalities;
   final Municipality? value;
@@ -184,9 +183,9 @@ class PhilippineMunicipalityDropdownView extends StatelessWidget {
       itemBuilder: (BuildContext context, e) {
         return itemBuilder?.call(context, e) ?? DropdownMenuItem(value: e, child: Text(e.name));
       },
-      hint: Text(
+      hint: const Text(
         'SELECT MUNICIPALITY',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.grey,
           fontSize: 14,
           letterSpacing: 1.2,
@@ -210,12 +209,12 @@ class PhilippineMunicipalityDropdownView extends StatelessWidget {
 
 class PhilippineBarangayDropdownView extends StatelessWidget {
   const PhilippineBarangayDropdownView({
-    Key? key,
+    super.key,
     required this.barangays,
     required this.onChanged,
     this.value,
     this.itemBuilder,
-  }) : super(key: key);
+  });
 
   final List<String> barangays;
   final String? value;
@@ -231,9 +230,9 @@ class PhilippineBarangayDropdownView extends StatelessWidget {
       itemBuilder: (BuildContext context, e) {
         return itemBuilder?.call(context, e) ?? DropdownMenuItem(value: e, child: Text(e));
       },
-      hint: Text(
+      hint: const Text(
         'SELECT BARANGAY',
-        style: const TextStyle(
+        style: TextStyle(
           color: Colors.grey,
           fontSize: 14,
           letterSpacing: 1.2,

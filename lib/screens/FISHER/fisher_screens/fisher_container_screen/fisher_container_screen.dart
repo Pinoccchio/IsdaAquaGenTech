@@ -5,7 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../fisher_reports_screen/fisher_reports_screen.dart';
+import '../../fishers_diary/fishers_diary_screen.dart';
 import '../../tilapia_lake_virus_information_screen/tilapia_lake_virus_information_screen.dart';
 import '../../whitespot_syndrome_virus_information_screen/whitespot_syndrome_virus_information_screen.dart';
 import '../fish_farm_details/fish_farm_details.dart';
@@ -29,12 +31,17 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   String? _farmImageUrl;
   Timer? _locationTimer;
   StreamSubscription<Position>? _positionStream;
+  bool _hasNewReports = false;
+  bool _hasNewAlerts = false;
+  String _selectedLanguage = 'English';
 
   @override
   void initState() {
     super.initState();
     _loadFarmData();
     _initializeLocationTracking();
+    _checkForNewReportsAndAlerts();
+    _loadLanguagePreference();
   }
 
   @override
@@ -45,7 +52,6 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   }
 
   Future<void> _initializeLocationTracking() async {
-    // Request location permission
     LocationPermission permission = await Geolocator.checkPermission();
     if (permission == LocationPermission.denied) {
       permission = await Geolocator.requestPermission();
@@ -60,10 +66,9 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
       return;
     }
 
-    // Start location tracking
     const locationSettings = LocationSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 10, // Update every 10 meters
+      distanceFilter: 10,
     );
 
     _positionStream = Geolocator.getPositionStream(locationSettings: locationSettings)
@@ -107,10 +112,33 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     }
   }
 
+  void _checkForNewReportsAndAlerts() {
+    FirebaseFirestore.instance
+        .collection('reports')
+        .where('farmId', isEqualTo: widget.farmId)
+        .where('isNew', isEqualTo: true)
+        .snapshots()
+        .listen((reportSnapshot) {
+      FirebaseFirestore.instance
+          .collection('alerts')
+          .where('farmId', isEqualTo: widget.farmId)
+          .where('isNew', isEqualTo: true)
+          .snapshots()
+          .listen((alertSnapshot) {
+        if (mounted) {
+          setState(() {
+            _hasNewReports = reportSnapshot.docs.isNotEmpty;
+            _hasNewAlerts = alertSnapshot.docs.isNotEmpty;
+          });
+        }
+      });
+    });
+  }
+
   Future<bool> _onWillPop() async {
     return await showDialog<bool>(
       context: context,
-      builder: (BuildContext context) => AlertDialog.adaptive(
+      builder: (BuildContext context) => AlertDialog(
         title: const Text('Exit App', style: TextStyle(fontWeight: FontWeight.bold)),
         content: const Text('Are you sure you want to exit the app?'),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
@@ -120,7 +148,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
             child: const Text('Cancel', style: TextStyle(color: Colors.blue, fontWeight: FontWeight.w600)),
           ),
           TextButton(
-            onPressed: () async {
+            onPressed: () {
               Navigator.of(context).pop(true);
               exit(0);
             },
@@ -129,6 +157,121 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         ],
       ),
     ) ?? false;
+  }
+
+  Future<void> _loadLanguagePreference() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _selectedLanguage = prefs.getString('language') ?? 'English';
+    });
+  }
+
+  Future<void> _saveLanguagePreference(String language) async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    await prefs.setString('language', language);
+    setState(() {
+      _selectedLanguage = language;
+    });
+  }
+
+  void _showLanguageSelectionDialog() {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Select Language'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              ListTile(
+                title: const Text('English'),
+                onTap: () {
+                  _saveLanguagePreference('English');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('Filipino'),
+                onTap: () {
+                  _saveLanguagePreference('Filipino');
+                  Navigator.pop(context);
+                },
+              ),
+              ListTile(
+                title: const Text('Bisaya'),
+                onTap: () {
+                  _saveLanguagePreference('Bisaya');
+                  Navigator.pop(context);
+                },
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  String _getTranslatedText(String key) {
+    final translations = {
+      'Filipino': {
+        'REPORTS': 'MGA ULAT',
+        'FARM DETAILS': 'MGA DETALYE NG SAKAHAN',
+        'TILAPIA LAKE VIRUS\nINFORMATION': 'IMPORMASYON SA\nTILAPIA LAKE VIRUS',
+        'WHITE SPOT SYNDROME\nVIRUS INFORMATION': 'IMPORMASYON SA WHITE SPOT\nSYNDROME VIRUS',
+        'LANGUAGE': 'WIKA',
+        'LOG OUT': 'MAG-LOG OUT',
+        'FARMER\'S DIARY': 'TALAARAWAN NG MAGSASAKA',
+        'FARMER\'S LIBRARY': 'AKLATAN NG MAGSASAKA',
+      },
+      'Bisaya': {
+        'REPORTS': 'MGA TAHO',
+        'FARM DETAILS': 'MGA DETALYE SA UMAHAN',
+        'TILAPIA LAKE VIRUS\nINFORMATION': 'IMPORMASYON SA\nTILAPIA LAKE VIRUS',
+        'WHITE SPOT SYNDROME\nVIRUS INFORMATION': 'IMPORMASYON SA WHITE SPOT\nSYNDROME VIRUS',
+        'LANGUAGE': 'PINULONGAN',
+        'LOG OUT': 'PAG-LOG OUT',
+        'FARMER\'S DIARY': 'DIARYOHAN SA MAG-UUMA',
+        'FARMER\'S LIBRARY': 'LIBRARYA SA MAG-UUMA',
+      },
+    };
+
+    if (_selectedLanguage == 'English') {
+      return key;
+    }
+    return translations[_selectedLanguage]?[key] ?? key;
+  }
+
+  Future<void> _launchFarmersLibrary() async {
+    final Uri url = Uri.parse('https://drive.google.com/drive/folders/1pN6Zao0ECBdZRg7sqPzpPprqpK-UsJk3?usp=drive_link');
+    try {
+      if (!await launchUrl(
+        url,
+        mode: LaunchMode.externalApplication,
+      )) {
+        throw Exception('Could not launch $url');
+      }
+    } catch (e) {
+      // Show error dialog instead of throwing exception
+      if (context.mounted) {
+        showDialog(
+          context: context,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              title: const Text('Error'),
+              content: const Text('Could not open the Farmer\'s Library. Please check your internet connection and try again.'),
+              actions: <Widget>[
+                TextButton(
+                  child: const Text('OK'),
+                  onPressed: () {
+                    Navigator.of(context).pop();
+                  },
+                ),
+              ],
+            );
+          },
+        );
+      }
+    }
   }
 
   @override
@@ -218,16 +361,23 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                   padding: EdgeInsets.zero,
                   children: <Widget>[
                     const SizedBox(height: 20),
-                    _buildMenuItem('REPORTS', onTap: () {
+                    _buildMenuItem(_getTranslatedText('REPORTS'), onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
                         MaterialPageRoute(
-                          builder: (context) => FisherReportsScreen(farmId: widget.farmId),
+                          builder: (context) => FisherReportsScreen(
+                            farmId: widget.farmId,
+                            updateBadgeStatus: (bool hasNewReports) {
+                              setState(() {
+                                _hasNewReports = hasNewReports;
+                              });
+                            },
+                          ),
                         ),
                       );
-                    }),
-                    _buildMenuItem('FARM DETAILS', onTap: () {
+                    }, badge: _hasNewReports),
+                    _buildMenuItem(_getTranslatedText('FARM DETAILS'), onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
@@ -236,7 +386,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                         ),
                       );
                     }),
-                    _buildMenuItem('TILAPIA LAKE VIRUS\nINFORMATION', onTap: () {
+                    _buildMenuItem(_getTranslatedText('TILAPIA LAKE VIRUS\nINFORMATION'), onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
@@ -245,7 +395,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                         ),
                       );
                     }),
-                    _buildMenuItem('WHITE SPOT SYNDROME\nVIRUS INFORMATION', onTap: () {
+                    _buildMenuItem(_getTranslatedText('WHITE SPOT SYNDROME\nVIRUS INFORMATION'), onTap: () {
                       Navigator.pop(context);
                       Navigator.push(
                         context,
@@ -254,11 +404,25 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                         ),
                       );
                     }),
+                    _buildMenuItem(_getTranslatedText('FARMER\'S DIARY'), onTap: () {
+                      Navigator.pop(context);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => FishersDiaryScreen(farmId: widget.farmId),
+                        ),
+                      );
+                    }),
+                    _buildMenuItem(_getTranslatedText('FARMER\'S LIBRARY'), onTap: () {
+                      Navigator.pop(context);
+                      _launchFarmersLibrary();
+                    }),
+                    _buildMenuItem(_getTranslatedText('LANGUAGE'), onTap: _showLanguageSelectionDialog),
                   ],
                 ),
               ),
               _buildMenuItem(
-                'LOG OUT',
+                _getTranslatedText('LOG OUT'),
                 onTap: () async {
                   Navigator.pop(context);
                   final prefs = await SharedPreferences.getInstance();
@@ -279,6 +443,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         body: FisherHomeScreen(
           openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
           farmId: widget.farmId,
+          selectedLanguage: _selectedLanguage,
         ),
       ),
     );
@@ -288,6 +453,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     required VoidCallback onTap,
     bool showDivider = true,
     IconData? icon,
+    bool badge = false,
   }) {
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -300,15 +466,26 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                 Icon(icon, size: 20),
                 const SizedBox(width: 12),
               ],
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  letterSpacing: 0.5,
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w500,
+                    letterSpacing: 0.5,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
+              if (badge || (title == 'REPORTS' && (_hasNewReports || _hasNewAlerts)))
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                ),
             ],
           ),
           onTap: onTap,

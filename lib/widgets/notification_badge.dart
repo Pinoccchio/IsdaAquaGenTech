@@ -3,7 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 
 class NotificationBadge extends StatelessWidget {
-  const NotificationBadge({Key? key}) : super(key: key);
+  const NotificationBadge({super.key});
 
   @override
   Widget build(BuildContext context) {
