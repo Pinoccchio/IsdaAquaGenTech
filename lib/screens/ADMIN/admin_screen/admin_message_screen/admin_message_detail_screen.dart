@@ -58,7 +58,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
             final dateTime = timestamp.toDate();
             final formattedDate = DateFormat('MMMM d, yyyy').format(dateTime);
             final formattedTime = DateFormat('h:mm a').format(dateTime);
-            final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
+            final isDiseaseDetected = data['isDiseaseDetected'] ?? false;
             final isAdminMessage = data['source'] == 'admin';
 
             // Mark the message as read for admin
@@ -89,7 +89,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'ID #${messageId.toString().padLeft(6, '0')}',
+                          'REPORT',
                           style: TextStyle(
                             fontSize: 18,
                             fontWeight: FontWeight.w600,
@@ -100,7 +100,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
-                            color: isAdminMessage ? adminColor.withOpacity(0.1) : (isVirusLikelyDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1)),
+                            color: isAdminMessage ? adminColor.withOpacity(0.1) : (isDiseaseDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1)),
                             borderRadius: BorderRadius.circular(20),
                           ),
                           child: Text(
@@ -108,7 +108,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w500,
-                              color: isAdminMessage ? adminColor : (isVirusLikelyDetected ? Colors.red : Colors.green),
+                              color: isAdminMessage ? adminColor : (isDiseaseDetected ? Colors.red : Colors.green),
                             ),
                           ),
                         ),
@@ -142,7 +142,7 @@ class AdminMessageDetailScreen extends StatelessWidget {
                           data['detection'] ?? 'Unknown',
                           style: TextStyle(
                             fontSize: 16,
-                            color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                            color: isDiseaseDetected ? Colors.red : Colors.green,
                             fontWeight: FontWeight.w500,
                           ),
                         ),

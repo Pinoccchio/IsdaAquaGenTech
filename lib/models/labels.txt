@@ -1,4 +1,4 @@
-Shrimp Virus LIKELY Detected
-Shrimp Virus NOT LIKELY Detected
-Tilapia Virus LIKELY Detected
-Tilapia Virus NOT LIKELY Detected
+Shrimp Disease LIKELY Detected
+Shrimp Disease NOT LIKELY Detected
+Tilapia Disease LIKELY Detected
+Tilapia Disease NOT LIKELY Detected

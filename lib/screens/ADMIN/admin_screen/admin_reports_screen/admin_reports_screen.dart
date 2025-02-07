@@ -7,6 +7,7 @@ import 'dart:io';
 import 'admin_report_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:geocoding/geocoding.dart';
+import 'package:path/path.dart' as path;
 
 
 class AdminReportsScreen extends StatefulWidget {
@@ -88,7 +89,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         final data = doc.data();
         final locationDescription = await _getLocationDescription(data);
         final detection = data['detection'] ?? 'Unknown';
-        final isLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+        final isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
         final isShrimp = detection.toLowerCase().contains('shrimp');
 
         final rowData = [
@@ -103,13 +104,13 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         ].map((e) => excel.TextCellValue(e.toString())).toList();
 
         if (isShrimp) {
-          if (isLikelyDetected) {
+          if (isDiseaseDetected) {
             shrimpLikelySheet.appendRow(rowData);
           } else {
             shrimpNotLikelySheet.appendRow(rowData);
           }
         } else {
-          if (isLikelyDetected) {
+          if (isDiseaseDetected) {
             tilapiaLikelySheet.appendRow(rowData);
           } else {
             tilapiaNotLikelySheet.appendRow(rowData);
@@ -141,8 +142,6 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       });
     }
   }
-
-
 
   @override
   Widget build(BuildContext context) {

@@ -34,12 +34,10 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
   List<Map<String, dynamic>> _originalFishTypes = [];
   final List<String> _availableFishTypes = ['TILAPIA', 'SHRIMPS'];
 
-  // New variables for map functionality
   final Completer<GoogleMapController> _controller = Completer();
   LatLng? _farmLocation;
   Set<Marker> _markers = {};
 
-  // Local notifications plugin
   final FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
   String _selectedLanguage = 'English';
@@ -215,13 +213,11 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     if (!_formKey.currentState!.validate()) return;
 
     try {
-      // Split the owner name into firstName and lastName
       List<String> nameParts = _ownerController.text.split(' ');
       String firstName = nameParts.first;
       String lastName = nameParts.length > 1 ? nameParts.sublist(1).join(' ') : '';
 
-      // Add to edit_requests collection
-      DocumentReference editRequestRef = await FirebaseFirestore.instance
+      await FirebaseFirestore.instance
           .collection('edit_requests')
           .add({
         'farmId': widget.farmId,
@@ -240,37 +236,13 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
         'isNew': true,
       });
 
-      // Add to messages collection
-      await FirebaseFirestore.instance
-          .collection('messages')
-          .add({
-        'farmId': widget.farmId,
-        'timestamp': FieldValue.serverTimestamp(),
-        'source': 'fisher',
-        'replyMessage': 'Edit request submitted for ${_farmNameController.text}',
-        'isNew': true,
-        'isNewForAdmin': true,
-        'isVirusLikelyDetected': false,
-        'requestedChanges': {
-          'farmName': _farmNameController.text,
-          'firstName': firstName,
-          'lastName': lastName,
-          'contactNumber': _contactNumberController.text,
-          'feedTypes': _feedTypesController.text,
-          'location': _locationController.text,
-          'fishTypes': _fishTypes,
-        },
-        'status': 'pending',
-        'editRequestId': editRequestRef.id,
-      });
-
       await _showNotification(_farmNameController.text);
 
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_getTranslatedText('Edit request submitted successfully')),
-            backgroundColor: Colors.green, // Green for success
+            backgroundColor: Colors.green,
           ),
         );
         setState(() {
@@ -283,7 +255,7 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(_getTranslatedText('Error submitting edit request')),
-            backgroundColor: Colors.red, // Red for error
+            backgroundColor: Colors.red,
           ),
         );
       }
@@ -357,7 +329,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
   void _removeFishType(int index) {
     setState(() {
       _fishTypes.removeAt(index);
-      // Update cage numbers
       for (int i = index; i < _fishTypes.length; i++) {
         _fishTypes[i]['cageNumber'] = i + 1;
       }
@@ -583,7 +554,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     );
   }
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -633,7 +603,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Farm Image
                 ClipRRect(
                   borderRadius: BorderRadius.circular(12),
                   child: _pondImageUrl != null
@@ -666,7 +635,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                   ),
                 ),
                 const SizedBox(height: 24),
-                // Farm Information Fields
                 _buildInfoField('FARM NAME', _farmNameController, enabled: _isEditing),
                 _buildInfoField('OWNER', _ownerController, enabled: _isEditing),
                 _buildInfoField('CONTACT NUMBER', _contactNumberController, enabled: _isEditing),
@@ -675,7 +643,6 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
                 _buildFishTypesList(),
                 _buildMap(),
                 const SizedBox(height: 32),
-                // Edit/Submit Button
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
@@ -716,4 +683,3 @@ class _FishFarmDetailsState extends State<FishFarmDetails> {
     );
   }
 }
-

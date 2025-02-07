@@ -2,7 +2,6 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
-import 'package:uuid/uuid.dart';
 
 class EditRequestDetailsScreen extends StatefulWidget {
   final String farmId;
@@ -68,17 +67,7 @@ class _EditRequestDetailsScreenState extends State<EditRequestDetailsScreen> {
       await FirebaseFirestore.instance.collection('edit_requests').doc(widget.requestId).update({
         'status': status,
         'processedAt': FieldValue.serverTimestamp(),
-      });
-
-      // Create a new message
-      final messageId = const Uuid().v4();
-      await FirebaseFirestore.instance.collection('messages').doc(messageId).set({
-        'farmId': widget.farmId,
-        'timestamp': FieldValue.serverTimestamp(),
-        'source': 'admin',
-        'replyMessage': 'Your edit request has been $status.',
-        'isNew': true,
-        'isNewForAdmin': true,
+        'isNew': true,  // Set isNew to true when the request is processed
       });
 
       ScaffoldMessenger.of(context).showSnackBar(
@@ -346,4 +335,3 @@ class _EditRequestDetailsScreenState extends State<EditRequestDetailsScreen> {
     );
   }
 }
-

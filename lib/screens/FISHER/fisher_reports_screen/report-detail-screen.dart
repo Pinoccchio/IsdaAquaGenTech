@@ -167,7 +167,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       }
 
       final detection = data['detection'] ?? 'Unknown';
-      final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+      final bool isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
 
       // Create alert document
       DocumentReference alertRef = await _firestore.collection('alerts').add({
@@ -180,9 +180,9 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         'longitude': data['realtime_location']?[1],
         'locationDescription': _locationDescription,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
+        'status': isDiseaseDetected ? 'diseaselikelydetected' : 'diseasenotlikelydetected',
         'farmId': farmId,
-        'requiresImmediateAction': isVirusLikelyDetected,
+        'requiresImmediateAction': isDiseaseDetected,
         'contactNumber': data['contactNumber'] ?? 'Unknown',
         'feedTypes': data['feedTypes'] ?? 'Unknown',
         'imageUrl': data['imageUrl'],
@@ -230,7 +230,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'unread',
         'type': 'alert',
-        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'isDiseaseDetected': isDiseaseDetected,
         'detection': detection,
         'farmName': data['farmName'] ?? 'Unknown',
         'ownerFirstName': data['ownerFirstName'] ?? 'Unknown',
@@ -253,7 +253,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       // Show notification
       await _showNotification(
           _getTranslatedText('New Alert Message'),
-          '${_getTranslatedText('A new alert has been created for')} $detection at ${data['farmName'] ?? 'Unknown Farm'}. ${isVirusLikelyDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
+          '${_getTranslatedText('A new alert has been created for')} $detection at ${data['farmName'] ?? 'Unknown Farm'}. ${isDiseaseDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
       );
 
       // Show success message
@@ -367,7 +367,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
     }
 
     final detection = data['detection'] ?? 'Unknown';
-    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
     final currentTimestamp = DateTime.now();
 
     bool? result = await showDialog<bool>(
@@ -431,16 +431,16 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                               decoration: BoxDecoration(
-                                color: isVirusLikelyDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                                color: isDiseaseDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                isVirusLikelyDetected
+                                isDiseaseDetected
                                     ? _getTranslatedText('NEED IMMEDIATE ACTION!')
                                     : _getTranslatedText('No immediate action required'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                  color: isDiseaseDetected ? Colors.red : Colors.green,
                                 ),
                               ),
                             ),
@@ -634,7 +634,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
 
     final detection = data['detection'] as String? ?? 'Unknown';
     final organismName = _extractOrganismName(detection);
-    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
     final imageUrl = data['imageUrl'] as String?;
 
     return Scaffold(
@@ -763,12 +763,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isVirusLikelyDetected
+                    color: isDiseaseDetected
                         ? Colors.red.withOpacity(0.1)
                         : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                   child: Text(
@@ -776,7 +776,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                 ),

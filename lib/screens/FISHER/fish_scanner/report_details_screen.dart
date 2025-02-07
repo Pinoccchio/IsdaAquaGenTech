@@ -197,7 +197,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         throw Exception('Farm ID is null');
       }
 
-      final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+      final bool isDiseaseDetected = !widget.detection.toLowerCase().contains('not likely detected');
 
       // Ensure the image is uploaded before saving the report
       if (_imageUrl.isEmpty) {
@@ -239,9 +239,9 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         'longitude': widget.farmData['realtime_location']?[1],
         'locationDescription': _locationDescription,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
+        'status': isDiseaseDetected ? 'diseaselikelydetected' : 'diseasenotlikelydetected',
         'farmId': farmId,
-        'requiresImmediateAction': isVirusLikelyDetected,
+        'requiresImmediateAction': isDiseaseDetected,
         'contactNumber': widget.farmData['contactNumber'] ?? 'Unknown',
         'feedTypes': widget.farmData['feedTypes'] ?? 'Unknown',
         'imageUrl': _imageUrl,
@@ -260,7 +260,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'unread',
         'type': 'alert',
-        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'isDiseaseDetected': isDiseaseDetected,
         'detection': widget.detection,
         'farmName': widget.farmData['farmName'] ?? 'Unknown',
         'ownerFirstName': widget.farmData['firstName'] ?? 'Unknown',
@@ -283,7 +283,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
       // Show notification
       await _showNotification(
           _getTranslatedText('New Report Alert'),
-          '${_getTranslatedText('A new report for')} ${widget.detection} ${_getTranslatedText('at')} ${widget.farmData['farmName'] ?? 'Unknown Farm'} ${_getTranslatedText('has been sent.')} ${isVirusLikelyDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
+          '${_getTranslatedText('A new report for')} ${widget.detection} ${_getTranslatedText('at')} ${widget.farmData['farmName'] ?? 'Unknown Farm'} ${_getTranslatedText('has been sent.')} ${isDiseaseDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
       );
 
       // Navigate to FisherContainerScreen and remove all previous routes
@@ -353,7 +353,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
 
 
   Future<void> _showMessageAlert() async {
-    final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !widget.detection.toLowerCase().contains('not likely detected');
 
     await showDialog(
       context: context,
@@ -415,16 +415,16 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                             Container(
                               padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
                               decoration: BoxDecoration(
-                                color: isVirusLikelyDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
+                                color: isDiseaseDetected ? Colors.red.withOpacity(0.1) : Colors.green.withOpacity(0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
-                                isVirusLikelyDetected
+                                isDiseaseDetected
                                     ? _getTranslatedText('NEED IMMEDIATE ACTION!')
                                     : _getTranslatedText('No immediate action required'),
                                 style: TextStyle(
                                   fontWeight: FontWeight.bold,
-                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                  color: isDiseaseDetected ? Colors.red : Colors.green,
                                 ),
                               ),
                             ),
@@ -605,7 +605,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
   @override
   Widget build(BuildContext context) {
     final organismName = _extractOrganismName(widget.detection);
-    final bool isVirusLikelyDetected = !widget.detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !widget.detection.toLowerCase().contains('not likely detected');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -746,12 +746,12 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isVirusLikelyDetected
+                    color: isDiseaseDetected
                         ? Colors.red.withOpacity(0.1)
                         : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                   child: Text(
@@ -759,7 +759,7 @@ class _ReportDetailsScreenState extends State<ReportDetailsScreen> {
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                 ),

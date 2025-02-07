@@ -129,7 +129,7 @@ class _AdminHomescreenFisherReportScreenState extends State<AdminHomescreenFishe
               itemBuilder: (context, index) {
                 final report = _farmReports[index];
                 final detection = report['detection'] as String? ?? 'Unknown';
-                final isVirusLikelyDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
+                final isDiseaseDetected = detection.toUpperCase().contains('LIKELY DETECTED') &&
                     !detection.toUpperCase().contains('NOT LIKELY DETECTED');
                 final isNewForAdmin = report['isNewForAdmin'] ?? false;
 
@@ -163,7 +163,7 @@ class _AdminHomescreenFisherReportScreenState extends State<AdminHomescreenFishe
                             shape: BoxShape.circle,
                             color: report['isReplied'] == true
                                 ? Colors.blue
-                                : isVirusLikelyDetected
+                                : isDiseaseDetected
                                 ? Colors.red
                                 : Colors.green,
                           ),
@@ -185,7 +185,7 @@ class _AdminHomescreenFisherReportScreenState extends State<AdminHomescreenFishe
                                 style: TextStyle(
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
-                                  color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                                  color: isDiseaseDetected ? Colors.red : Colors.green,
                                 ),
                               ),
                             ],

@@ -28,7 +28,6 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
   void initState() {
     super.initState();
     _initializeNotifications();
-    //_updateReportStatus(); //Commented out as per the update request.
     _getLocationDescription();
   }
 
@@ -59,13 +58,6 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
       platformChannelSpecifics,
     );
   }
-
-  // Future<void> _updateReportStatus() async { //Commented out as per the update request.
-  //   await FirebaseFirestore.instance
-  //       .collection('reports')
-  //       .doc(widget.reportId)
-  //       .update({'isNewForAdmin': false});
-  // }
 
   String _formatTimestamp(Timestamp timestamp) {
     return DateFormat('MMMM d, yyyy \'at\' h:mm a').format(timestamp.toDate());
@@ -116,7 +108,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
   Future<void> _showMessageAlert() async {
     final TextEditingController messageController = TextEditingController();
     final detection = widget.reportData['detection'] as String? ?? 'Unknown';
-    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
 
     await showDialog(
       context: context,
@@ -161,7 +153,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop();
-                      _sendAlert(isVirusLikelyDetected, messageController.text);
+                      _sendAlert(isDiseaseDetected, messageController.text);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF40C4FF),
@@ -187,7 +179,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
     );
   }
 
-  Future<void> _sendAlert(bool isVirusLikelyDetected, String message) async {
+  Future<void> _sendAlert(bool isDiseaseDetected, String message) async {
     if (_isSendingAlert) return;
 
     setState(() {
@@ -215,9 +207,9 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
         'longitude': widget.reportData['realtime_location']?[1],
         'locationDescription': _locationDescription,
         'timestamp': FieldValue.serverTimestamp(),
-        'status': isVirusLikelyDetected ? 'viruslikelydetected' : 'virusnotlikelydetected',
+        'status': isDiseaseDetected ? 'diseaselikelydetected' : 'diseasenotlikelydetected',
         'farmId': farmId,
-        'requiresImmediateAction': isVirusLikelyDetected,
+        'requiresImmediateAction': isDiseaseDetected,
         'contactNumber': widget.reportData['contactNumber'] ?? 'Unknown',
         'feedTypes': widget.reportData['feedTypes'] ?? 'Unknown',
         'imageUrl': widget.reportData['imageUrl'] ?? '',
@@ -236,7 +228,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'unread',
         'type': 'alert',
-        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'isDiseaseDetected': isDiseaseDetected,
         'detection': detection,
         'farmName': widget.reportData['farmName'] ?? 'Unknown',
         'ownerFirstName': widget.reportData['ownerFirstName'] ?? 'Unknown',
@@ -263,7 +255,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
 
       await _showNotification(
           'New Report Alert',
-          'A new report for $detection at ${widget.reportData['farmName'] ?? 'Unknown Farm'} has been sent. ${isVirusLikelyDetected ? 'Immediate action may be required.' : 'No immediate action is required.'}'
+          'A new report for $detection at ${widget.reportData['farmName'] ?? 'Unknown Farm'} has been sent. ${isDiseaseDetected ? 'Immediate action may be required.' : 'No immediate action is required.'}'
       );
 
       if (!mounted) return;
@@ -372,7 +364,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
   @override
   Widget build(BuildContext context) {
     final organismName = _extractOrganismName(widget.reportData['detection']);
-    final bool isVirusLikelyDetected = !widget.reportData['detection'].toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !widget.reportData['detection'].toLowerCase().contains('not likely detected');
 
     return Scaffold(
       backgroundColor: Colors.white,
@@ -500,12 +492,12 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                   decoration: BoxDecoration(
-                    color: isVirusLikelyDetected
+                    color: isDiseaseDetected
                         ? Colors.red.withOpacity(0.1)
                         : Colors.green.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                   child: Text(
@@ -513,7 +505,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
                     style: TextStyle(
                       fontSize: 16,
                       fontWeight: FontWeight.bold,
-                      color: isVirusLikelyDetected ? Colors.red : Colors.green,
+                      color: isDiseaseDetected ? Colors.red : Colors.green,
                     ),
                   ),
                 ),

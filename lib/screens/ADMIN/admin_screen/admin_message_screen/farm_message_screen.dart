@@ -69,18 +69,14 @@ class FarmMessageScreen extends StatelessWidget {
     final isNewAdminReply = isAdmin && (data['isNewForAdmin'] ?? false);
     final isNewMessageFromAdmin = isAdmin && (data['isNewMessageFromAdmin'] ?? false);
 
+    final detection = data['detection'] as String? ?? '';
+    final isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
+
     Color bubbleColor;
     if (isAdmin) {
-      bubbleColor = isNewMessageFromAdmin ? Colors.yellow[300]! : (isNewAdminReply ? Colors.green[300]! : const Color(0xFF40C4FF));
+      bubbleColor = isDiseaseDetected ? Colors.red[100]! : Colors.green[100]!;
     } else {
-      final content = data['content'] as String? ?? '';
-      if (content.toLowerCase().contains('virus likely detected')) {
-        bubbleColor = Colors.red[100]!;
-      } else if (content.toLowerCase().contains('virus not likely detected')) {
-        bubbleColor = Colors.green[100]!;
-      } else {
-        bubbleColor = Colors.grey[300]!;
-      }
+      bubbleColor = isDiseaseDetected ? Colors.red[100]! : Colors.green[100]!;
     }
 
     return GestureDetector(
@@ -124,18 +120,29 @@ class FarmMessageScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
+                  if (detection.isNotEmpty)
+                    Text(
+                      detection.toUpperCase(),
+                      style: TextStyle(
+                        color: isDiseaseDetected ? Colors.red : Colors.green,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                  if (detection.isNotEmpty)
+                    const SizedBox(height: 4),
                   Text(
                     isAdmin ? data['replyMessage'] ?? '' : data['content'] ?? '',
                     style: TextStyle(
-                      color: isAdmin ? Colors.white : Colors.black,
+                      color: isAdmin ? Colors.black : Colors.black,
                       fontSize: 16,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
                     formattedTime,
-                    style: TextStyle(
-                      color: isAdmin ? Colors.white70 : Colors.black54,
+                    style: const TextStyle(
+                      color: Colors.black54,
                       fontSize: 12,
                     ),
                   ),

@@ -15,6 +15,7 @@ import 'package:http/http.dart' as http;
 import 'dart:convert';
 import 'package:geolocator/geolocator.dart';
 import '../../fish_scanner/fish_scanner.dart';
+import '../../fisher_edit_requests_screen/fisher_edit_requests_screen.dart';
 import '../../fisher_message_screen/fisher_message_screen.dart';
 
 class FisherHomeScreen extends StatefulWidget {
@@ -56,6 +57,8 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   List<Map<String, dynamic>> _announcements = [];
   bool _isLoadingAnnouncements = false;
   int _currentAnnouncementIndex = 0; // Added variable
+  bool _hasNewEditRequests = false;
+
 
   @override
   void initState() {
@@ -67,6 +70,7 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     _fetchNews();
     _listenForNewReportsAndAlerts();
     _listenForNewMessages();
+    _listenForNewEditRequests();
     _fetchAnnouncements();
     Timer.periodic(const Duration(minutes: 15), (Timer t) => _refreshNews());
   }
@@ -91,6 +95,30 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     weatherTimer = Timer.periodic(const Duration(minutes: 5), (Timer t) {
       _getWeatherData();
     });
+  }
+
+  void _listenForNewEditRequests() {
+    FirebaseFirestore.instance
+        .collection('edit_requests')
+        .where('farmId', isEqualTo: widget.farmId)
+        .where('isNew', isEqualTo: true)
+        .snapshots()
+        .listen((snapshot) {
+      if (mounted) {
+        setState(() {
+          _hasNewEditRequests = snapshot.docs.isNotEmpty;
+        });
+      }
+    });
+  }
+
+  void _navigateToEditRequestScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => FisherEditRequestsScreen(farmId: widget.farmId),
+      ),
+    );
   }
 
   void _listenForNewReportsAndAlerts() {
@@ -1142,22 +1170,43 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
                     'lib/assets/images/primary-logo.png',
                     height: 40,
                   ),
-                  badges.Badge(
-                    position: badges.BadgePosition.topEnd(top: -8, end: -8),
-                    showBadge: _hasNewMessages,
-                    badgeContent: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: const BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: Colors.red,
+                  Row(
+                    children: [
+                      badges.Badge(
+                        position: badges.BadgePosition.topEnd(top: -8, end: -8),
+                        showBadge: _hasNewEditRequests,
+                        badgeContent: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.edit),
+                          onPressed: _navigateToEditRequestScreen,
+                          color: Colors.black87,
+                        ),
                       ),
-                    ),
-                    child: IconButton(
-                      icon: const Icon(Icons.chat_bubble_outline),
-                      onPressed: _navigateToMessageScreen,
-                      color: Colors.black87,
-                    ),
+                      badges.Badge(
+                        position: badges.BadgePosition.topEnd(top: -8, end: -8),
+                        showBadge: _hasNewMessages,
+                        badgeContent: Container(
+                          width: 8,
+                          height: 8,
+                          decoration: const BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: Colors.red,
+                          ),
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.chat_bubble_outline),
+                          onPressed: _navigateToMessageScreen,
+                          color: Colors.black87,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -1171,7 +1220,7 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
                     Padding(
                       padding: const EdgeInsets.all(16.0),
                       child: Text(
-                        farmName != null ? farmName! : 'Loading...',
+                        farmName ?? 'Loading...',
                         style: const TextStyle(
                           fontSize: 24,
                           fontWeight: FontWeight.bold,
@@ -1214,15 +1263,16 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   }
 }
 
+// Move AnnouncementCard outside of HomePage class
 class AnnouncementCard extends StatelessWidget {
   final Map<String, dynamic> announcement;
   final VoidCallback onTap;
 
   const AnnouncementCard({
-    super.key,
+    Key? key,
     required this.announcement,
     required this.onTap,
-  });
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
@@ -1235,20 +1285,18 @@ class AnnouncementCard extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             if (announcement['imageUrl'] != null)
-              Expanded(
-                child: GestureDetector(
-                  onTap: () => _showFullScreenImage(context, announcement['imageUrl']),
-                  child: ClipRRect(
-                    borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
-                    child: CachedNetworkImage(
-                      imageUrl: announcement['imageUrl'],
-                      fit: BoxFit.cover,
-                      width: double.infinity,
-                      placeholder: (context, url) => const Center(
-                        child: CircularProgressIndicator(),
-                      ),
-                      errorWidget: (context, url, error) => const Icon(Icons.error),
+              GestureDetector(
+                onTap: () => _showFullScreenImage(context, announcement['imageUrl']),
+                child: ClipRRect(
+                  borderRadius: const BorderRadius.vertical(top: Radius.circular(12)),
+                  child: CachedNetworkImage(
+                    imageUrl: announcement['imageUrl'],
+                    fit: BoxFit.cover,
+                    width: double.infinity,
+                    placeholder: (context, url) => const Center(
+                      child: CircularProgressIndicator(),
                     ),
+                    errorWidget: (context, url, error) => const Icon(Icons.error),
                   ),
                 ),
               ),
@@ -1270,7 +1318,7 @@ class AnnouncementCard extends StatelessWidget {
     );
   }
 
-  void _showFullScreenImage(BuildContext context, String imageUrl) {
+  static void _showFullScreenImage(BuildContext context, String imageUrl) {
     showDialog(
       context: context,
       builder: (BuildContext context) {

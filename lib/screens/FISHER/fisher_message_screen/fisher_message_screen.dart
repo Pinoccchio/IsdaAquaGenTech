@@ -34,7 +34,7 @@ class FisherMessageScreen extends StatelessWidget {
         stream: FirebaseFirestore.instance
             .collection('messages')
             .where('farmId', isEqualTo: farmId)
-            .orderBy('timestamp', descending: false) // Changed to ascending order
+            .orderBy('timestamp', descending: false)
             .snapshots(),
         builder: (context, snapshot) {
           if (snapshot.hasError) {
@@ -69,23 +69,14 @@ class FisherMessageScreen extends StatelessWidget {
     final formattedTime = DateFormat('h:mm a').format(dateTime);
     final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
 
+    final detection = data['detection'] as String? ?? '';
+    final isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
+
     Color bubbleColor;
-    Color textColor;
     if (isAdmin) {
-      bubbleColor = Colors.grey[300]!;
-      textColor = Colors.black;
+      bubbleColor = isDiseaseDetected ? Colors.red[100]! : Colors.green[100]!;
     } else {
-      final content = data['content'] as String? ?? '';
-      if (content.toLowerCase().contains('virus likely detected')) {
-        bubbleColor = Colors.red[100]!;
-        textColor = Colors.red[900]!;
-      } else if (content.toLowerCase().contains('virus not likely detected')) {
-        bubbleColor = Colors.green[100]!;
-        textColor = Colors.green[900]!;
-      } else {
-        bubbleColor = const Color(0xFF40C4FF);
-        textColor = Colors.white;
-      }
+      bubbleColor = isDiseaseDetected ? Colors.red[100]! : Colors.green[100]!;
     }
 
     return GestureDetector(
@@ -106,7 +97,7 @@ class FisherMessageScreen extends StatelessWidget {
             .update({'isNew': false});
       },
       child: Align(
-        alignment: isAdmin ? Alignment.centerLeft : Alignment.centerRight, // Fisher messages on the right
+        alignment: isAdmin ? Alignment.centerLeft : Alignment.centerRight,
         child: Container(
           margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
           padding: const EdgeInsets.all(12),
@@ -120,10 +111,21 @@ class FisherMessageScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              if (detection.isNotEmpty)
+                Text(
+                  detection.toUpperCase(),
+                  style: TextStyle(
+                    color: isDiseaseDetected ? Colors.red : Colors.green,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                  ),
+                ),
+              if (detection.isNotEmpty)
+                const SizedBox(height: 4),
               Text(
                 _getMessagePreview(data),
-                style: TextStyle(
-                  color: textColor,
+                style: const TextStyle(
+                  color: Colors.black,
                   fontSize: 16,
                 ),
                 maxLines: 3,
@@ -132,8 +134,8 @@ class FisherMessageScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 '$formattedDate at $formattedTime',
-                style: TextStyle(
-                  color: textColor.withOpacity(0.7),
+                style: const TextStyle(
+                  color: Colors.black54,
                   fontSize: 12,
                 ),
               ),
@@ -182,11 +184,8 @@ class FisherMessageScreen extends StatelessWidget {
     } else if (data['source'] == 'admin') {
       return data['replyMessage'] as String? ?? 'No message content';
     } else {
-      final detection = data['detection'] ?? 'Unknown';
-      final isVirusLikelyDetected = data['isVirusLikelyDetected'] ?? false;
-      return isVirusLikelyDetected
-          ? 'Alert - $detection'
-          : 'Report - $detection';
+      final content = data['content'] as String? ?? 'No message content';
+      return content;
     }
   }
 }

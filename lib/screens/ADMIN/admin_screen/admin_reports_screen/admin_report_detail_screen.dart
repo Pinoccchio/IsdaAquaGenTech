@@ -111,7 +111,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
   Future<void> _showMessageAlert(BuildContext context, Map<String, dynamic> reportData) async {
     final TextEditingController messageController = TextEditingController();
     final detection = reportData['detection'] as String? ?? 'Unknown';
-    final bool isVirusLikelyDetected = !detection.toLowerCase().contains('not likely detected');
+    final bool isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
 
     await showDialog(
       context: context,
@@ -156,7 +156,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                   child: ElevatedButton(
                     onPressed: () {
                       Navigator.of(dialogContext).pop();
-                      _sendMessage(context, isVirusLikelyDetected, messageController.text, reportData);
+                      _sendMessage(context, isDiseaseDetected, messageController.text, reportData);
                     },
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF40C4FF),
@@ -182,7 +182,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
     );
   }
 
-  Future<void> _sendMessage(BuildContext context, bool isVirusLikelyDetected, String message, Map<String, dynamic> reportData) async {
+  Future<void> _sendMessage(BuildContext context, bool isDiseaseDetected, String message, Map<String, dynamic> reportData) async {
     try {
       await FirebaseFirestore.instance.collection('reports').doc(widget.reportId).update({'isNewForAdmin': false});
       final farmId = reportData['farmId'];
@@ -203,7 +203,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
         'timestamp': FieldValue.serverTimestamp(),
         'status': 'unread',
         'type': 'report',
-        'isVirusLikelyDetected': isVirusLikelyDetected,
+        'isDiseaseDetected': isDiseaseDetected,
         'detection': detection,
         'farmName': reportData['farmName'] ?? 'Unknown',
         'ownerFirstName': reportData['ownerFirstName'] ?? 'Unknown',
