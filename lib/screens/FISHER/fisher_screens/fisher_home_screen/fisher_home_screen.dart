@@ -36,7 +36,7 @@ class FisherHomeScreen extends StatefulWidget {
 
 class _FisherHomeScreenState extends State<FisherHomeScreen> {
   final String apiKey = 'de027726bde1251b15e2fb337b826f13';
-  final FlutterNewsService newsService = FlutterNewsService('fe959ea9b7524994a32837395d1ddc431');
+  final FlutterNewsService newsService = FlutterNewsService('fe959ea9b7524994a32837395d1ddc43');
   Map<String, dynamic>? weatherData;
   List<Map<String, dynamic>>? forecast;
   Position? currentPosition;
