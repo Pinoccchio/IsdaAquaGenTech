@@ -4,6 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
 import 'fisher-diary-detail-screen.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'add-diary-entry-screen.dart'; // Import the new screen
 
 class FishersDiaryScreen extends StatefulWidget {
   final String farmId;
@@ -23,6 +24,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
   List<Map<String, dynamic>> _cageData = [];
   Set<String> _availableOrganisms = {};
   String _selectedLanguage = 'English';
+  bool _isSelectedCageValid = false; // Added state variable
 
   final Color _primaryColor = const Color(0xFF23B4BC);
   final Color _secondaryColor = Colors.white;
@@ -51,6 +53,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
       'Diary entry marked as harvested': 'Namarkahan ang entry sa talaarawan bilang inani',
       'Diary entry added successfully': 'Matagumpay na naidagdag ang entry sa talaarawan',
       'Error saving diary entry': 'May error sa pag-save ng entry sa talaarawan',
+      'Once submitted, you cannot edit this information anymore.': 'Kapag nai-submit na, hindi mo na maaaring i-edit ang impormasyong ito.',
     },
     'Bisaya': {
       'Farmer\'s Diary': 'Talaan sa Mag-uuma',
@@ -73,6 +76,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
       'Diary entry marked as harvested': 'Namarkahan ang entry sa talaan og ani na',
       'Diary entry added successfully': 'Malampuson nga nadugang ang entry sa talaan',
       'Error saving diary entry': 'Naay sayop sa pag-save sa entry sa talaan',
+      'Once submitted, you cannot edit this information anymore.': 'Kung ma-submit na, dili na nimo mausab kini nga impormasyon.',
     },
   };
 
@@ -119,18 +123,20 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
 
         if (data['fishTypes'] != null) {
           List<dynamic> fishTypes = data['fishTypes'] as List<dynamic>;
-          Set<String> organisms = {};
+          List<Map<String, dynamic>> cageData = [];
 
           for (var cage in fishTypes) {
             if (cage['fishTypes'] != null) {
               List<dynamic> types = cage['fishTypes'] as List<dynamic>;
-              organisms.addAll(types.map((type) => type.toString()));
+              cageData.add({
+                'cageNumber': cage['cageNumber'],
+                'organisms': types.map((type) => type.toString()).toList(),
+              });
             }
           }
 
           setState(() {
-            _cageData = List<Map<String, dynamic>>.from(fishTypes);
-            _availableOrganisms = organisms;
+            _cageData = cageData;
           });
         }
       }
@@ -138,6 +144,18 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
       print('Error loading farm data: $e');
     }
   }
+
+  Future<List<String>> _getExistingDiaryEntriesForCage(String cageNumber) async {
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('farms')
+        .doc(widget.farmId)
+        .collection('diary')
+        .where('cageNumber', isEqualTo: int.parse(cageNumber))
+        .get();
+
+    return querySnapshot.docs.map((doc) => doc['organism'] as String).toList();
+  }
+
 
   Widget _buildTableHeader() {
     return Padding(
@@ -231,13 +249,6 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
     }
   }
 
-  List<String> _getOrganismsForCage(String cageNumber) {
-    var cage = _cageData.firstWhere(
-          (cage) => cage['cageNumber'].toString() == cageNumber,
-      orElse: () => {'fishTypes': []},
-    );
-    return (cage['fishTypes'] as List<dynamic>?)?.cast<String>() ?? [];
-  }
 
   Future<void> _selectDate(BuildContext context, StateSetter setState) async {
     await showCupertinoModalPopup(
@@ -270,247 +281,25 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
     );
   }
 
-  Future<void> _showAddEntryDialog() async {
-    _cageNoController.clear();
-    _selectedOrganism = null;
-    _startDate = null;
-    _harvestDate = null;
-
-    await showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (context, setState) {
-            List<String> availableOrganisms = _cageNoController.text.isNotEmpty
-                ? _getOrganismsForCage(_cageNoController.text)
-                : _availableOrganisms.toList();
-
-            return Dialog(
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Container(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      _getTranslatedText('CAGE'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    DropdownButtonFormField<String>(
-                      value: _cageNoController.text.isEmpty ? null : _cageNoController.text,
-                      decoration: InputDecoration(
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: _borderColor),
-                        ),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: _borderColor),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: _borderColor),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      ),
-                      hint: Text(_getTranslatedText('Select Cage'), style: TextStyle(color: _textColor.withOpacity(0.5))),
-                      items: _cageData.map((cage) {
-                        return DropdownMenuItem<String>(
-                          value: cage['cageNumber'].toString(),
-                          child: Text('Cage ${cage['cageNumber']}'),
-                        );
-                      }).toList(),
-                      onChanged: (String? value) {
-                        setState(() {
-                          _cageNoController.text = value ?? '';
-                          _selectedOrganism = null;
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    Text(
-                      _getTranslatedText('ORGANISM'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: _borderColor),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButton<String>(
-                        value: _selectedOrganism,
-                        isExpanded: true,
-                        underline: Container(),
-                        hint: Text(_getTranslatedText('Select Organism'), style: TextStyle(color: _textColor.withOpacity(0.5))),
-                        items: availableOrganisms.map((String organism) {
-                          return DropdownMenuItem<String>(
-                            value: organism,
-                            child: Text(organism),
-                          );
-                        }).toList(),
-                        onChanged: (String? value) {
-                          setState(() {
-                            _selectedOrganism = value;
-                            _updateHarvestDate();
-                          });
-                        },
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    Text(
-                      _getTranslatedText('START DATE'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    GestureDetector(
-                      onTap: () => _selectDate(context, setState),
-                      child: Container(
-                        width: double.infinity,
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                        decoration: BoxDecoration(
-                          border: Border.all(color: _borderColor),
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Text(
-                              _startDate == null
-                                  ? _getTranslatedText('Select Date')
-                                  : DateFormat('MM/dd/yyyy').format(_startDate!),
-                              style: TextStyle(
-                                color: _startDate == null ? _textColor.withOpacity(0.5) : _textColor,
-                              ),
-                            ),
-                            Icon(Icons.calendar_today, color: _primaryColor),
-                          ],
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 16),
-
-                    Text(
-                      _getTranslatedText('HARVEST DATE'),
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: _textColor,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Container(
-                      width: double.infinity,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: _borderColor),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            _harvestDate == null
-                                ? _getTranslatedText('Select start date and organism first')
-                                : DateFormat('MM/dd/yyyy').format(_harvestDate!),
-                            style: TextStyle(color: _harvestDate == null ? _textColor.withOpacity(0.5) : _textColor),
-                          ),
-                          if (_selectedOrganism != null)
-                            Text(
-                              '*${_selectedOrganism} = ${_selectedOrganism?.toUpperCase() == 'TILAPIA' ? '6' : '4'} months',
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: _primaryColor,
-                              ),
-                            ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 24),
-
-                    SizedBox(
-                      width: double.infinity,
-                      child: ElevatedButton(
-                        onPressed: () async {
-                          if (_cageNoController.text.isNotEmpty &&
-                              _selectedOrganism != null &&
-                              _startDate != null &&
-                              _harvestDate != null) {
-                            try {
-                              await FirebaseFirestore.instance
-                                  .collection('farms')
-                                  .doc(widget.farmId)
-                                  .collection('diary')
-                                  .add({
-                                'cageNumber': int.parse(_cageNoController.text),
-                                'organism': _selectedOrganism,
-                                'startDate': _startDate,
-                                'harvestDate': _harvestDate,
-                                'timestamp': FieldValue.serverTimestamp(),
-                              });
-                              Navigator.pop(context);
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(_getTranslatedText('Diary entry added successfully')),
-                                  backgroundColor: _primaryColor,
-                                ),
-                              );
-                            } catch (e) {
-                              print('Error saving diary entry: $e');
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Text(_getTranslatedText('Error saving diary entry')),
-                                  backgroundColor: Colors.red,
-                                ),
-                              );
-                            }
-                          }
-                        },
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: _primaryColor,
-                          padding: const EdgeInsets.symmetric(vertical: 16),
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(24),
-                          ),
-                        ),
-                        child: Text(
-                          _getTranslatedText('SAVE'),
-                          style: const TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.white,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
+  void _showAddEntryScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => AddDiaryEntryScreen(
+          farmId: widget.farmId,
+          cageData: _cageData,
+        ),
+      ),
+    ).then((value) {
+      if (value == true) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(_getTranslatedText('Diary entry added successfully')),
+            backgroundColor: _primaryColor,
+          ),
         );
-      },
-    );
+      }
+    });
   }
 
   @override
@@ -860,7 +649,7 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
         ),
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _showAddEntryDialog,
+        onPressed: _showAddEntryScreen,
         backgroundColor: _primaryColor,
         child: const Icon(Icons.add, size: 32, color: Colors.white),
         shape: const CircleBorder(),
@@ -869,3 +658,4 @@ class _FishersDiaryScreenState extends State<FishersDiaryScreen> {
     );
   }
 }
+

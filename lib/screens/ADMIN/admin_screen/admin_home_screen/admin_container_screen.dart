@@ -3,7 +3,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:isda_aqua_gentech/screens/fisherOrAdminLoginScreen/fisherOrAdminLoginScreen.dart';
 import '../admin_announcements_manager/admin_announcements_screen.dart';
-import '../admin_fisher_diary_screen/admin_fisher_diary_screen.dart';
+// import '../admin_fisher_diary_screen/admin_fisher_diary_screen.dart';
 import '../admin_reports_screen/admin_reports_screen.dart';
 import '../fish_farm_locations/fish_farm_location.dart';
 import '../regisiter_new_farm_screen/register_new_farm_screen.dart';
@@ -165,13 +165,13 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
                           MaterialPageRoute(builder: (context) => const RegisterNewFarmScreen()),
                         );
                       }),
-                      _buildMenuItem('FISHER\'S DIARY', onTap: () {
-                        Navigator.pop(context);
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(builder: (context) => const AdminFishersDiaryScreen()),
-                        );
-                      }),
+                      //_buildMenuItem('FISHERMAN\'S DIARY', onTap: () {
+                      //  Navigator.pop(context);
+                      //  Navigator.push(
+                      //    context,
+                      //    MaterialPageRoute(builder: (context) => const AdminFishersDiaryScreen()),
+                      //  );
+                      //}),
                     ],
                   ),
                 ),
@@ -244,3 +244,4 @@ class _AdminHomeContainerScreenState extends State<AdminHomeContainerScreen> {
     );
   }
 }
+

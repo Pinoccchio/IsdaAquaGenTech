@@ -5,7 +5,6 @@ import './report-detail-screen.dart';
 import 'fisher_report_notification_screen.dart';
 import 'package:geocoding/geocoding.dart';
 import 'notification_manager.dart';
-import 'package:badges/badges.dart' as badges;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class FisherReportsScreen extends StatefulWidget {
@@ -26,7 +25,6 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
   final NotificationManager _notificationManager = NotificationManager();
   int _badgeCount = 0;
   bool _isDisposed = false;
-  bool _hasNewAlerts = false;
   String _selectedLanguage = 'English';
   final Map<String, Map<String, String>> _translations = {
     'Filipino': {
@@ -62,7 +60,6 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     _notificationManager.initialize().then((_) {
       if (!_isDisposed) {
         _listenForNewReports();
-        _listenForNewAlerts();
       }
     });
   }
@@ -79,38 +76,6 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     });
   }
 
-  void _listenForNewAlerts() {
-    FirebaseFirestore.instance
-        .collection('alerts')
-        .where('farmId', isEqualTo: widget.farmId)
-        .where('isNew', isEqualTo: true)
-        .snapshots()
-        .listen((alertSnapshot) {
-      if (mounted) {
-        setState(() {
-          _hasNewAlerts = alertSnapshot.docs.isNotEmpty;
-        });
-      }
-    });
-  }
-
-  Future<void> _markAlertsAsRead() async {
-    final batch = FirebaseFirestore.instance.batch();
-    final querySnapshot = await FirebaseFirestore.instance
-        .collection('alerts')
-        .where('farmId', isEqualTo: widget.farmId)
-        .where('isNew', isEqualTo: true)
-        .get();
-
-    for (var doc in querySnapshot.docs) {
-      batch.update(doc.reference, {'isNew': false});
-    }
-
-    await batch.commit();
-    setState(() {
-      _hasNewAlerts = false;
-    });
-  }
 
   Future<String> _getLocationDescription(List<dynamic>? coordinates) async {
     if (coordinates != null && coordinates.length == 2) {
@@ -204,49 +169,24 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
           height: 32,
         ),
         centerTitle: true,
-        actions: [
-          badges.Badge(
-            position: badges.BadgePosition.topEnd(top: 0, end: 3),
-            showBadge: _hasNewAlerts,
-            badgeContent: const Text(
-              '!',
-              style: TextStyle(color: Colors.white, fontSize: 10),
-            ),
-            child: IconButton(
-              icon: const Icon(Icons.notifications_none, color: Colors.black),
-              onPressed: () async {
-                await _markAlertsAsRead();
-                setState(() {
-                  _hasNewAlerts = false;
-                });
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                    builder: (context) => ReportNotificationScreen(farmId: widget.farmId),
-                  ),
-                );
-              },
-            ),
-          ),
-        ],
       ),
       body: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
         child: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.symmetric(vertical: 20),
+              padding: const EdgeInsets.only(bottom: 24),
               child: Text(
                 _getTranslatedText('REPORTS'),
                 style: const TextStyle(
-                  fontSize: 24,
+                  fontSize: 28,
                   fontWeight: FontWeight.bold,
                   letterSpacing: 1.5,
                 ),
               ),
             ),
-            const SizedBox(height: 8),
             _buildTableHeader(),
+            const SizedBox(height: 16),
             Expanded(
               child: StreamBuilder<QuerySnapshot>(
                 stream: _getReportsStream(),
@@ -273,7 +213,7 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
                       final data = report.data() as Map<String, dynamic>;
                       final timestamp = data['timestamp'] as Timestamp?;
                       final dateTime = timestamp != null
-                          ? DateFormat('MM/dd/yyyy\nh:mm a').format(timestamp.toDate())
+                          ? DateFormat('MM/dd/yy\nh:mm a').format(timestamp.toDate())
                           : 'N/A';
                       final detection = data['detection'] ?? 'Unknown';
                       final realtimeLocation = data['realtime_location'] as List<dynamic>?;
@@ -287,68 +227,73 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
                           return GestureDetector(
                             onTap: () => _navigateToDetail(context, report),
                             child: Container(
-                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              margin: const EdgeInsets.only(bottom: 12),
+                              padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
                               decoration: BoxDecoration(
                                 border: Border.all(color: const Color(0xFF40C4FF)),
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: BorderRadius.circular(12),
                                 color: data['isNew'] == true ? Colors.blue[50] : null,
                               ),
                               child: Row(
                                 children: [
-                                  Container(
-                                    width: 40,
-                                    alignment: Alignment.center,
-                                    child: _buildStatusIndicator(isReplied, detection),
+                                  Expanded(
+                                    flex: 1,
+                                    child: Center(
+                                      child: _buildStatusIndicator(isReplied, detection),
+                                    ),
                                   ),
                                   Expanded(
-                                    child: Padding(
-                                      padding: const EdgeInsets.all(8),
-                                      child: Row(
-                                        children: [
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              _getTranslatedText(data['farmName'] ?? 'Unknown Farm'),
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              locationDescription,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.bold,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              dateTime,
-                                              style: const TextStyle(
-                                                fontSize: 11,
-                                              ),
-                                            ),
-                                          ),
-                                          Expanded(
-                                            flex: 2,
-                                            child: Text(
-                                              detection.toUpperCase(),
-                                              style: TextStyle(
-                                                fontSize: 11,
-                                                fontWeight: FontWeight.w500,
-                                                color: detection.toLowerCase().contains('not likely detected')
-                                                    ? Colors.green
-                                                    : Colors.red,
-                                              ),
-                                            ),
-                                          ),
-                                        ],
+                                    flex: 2,
+                                    child: Center(
+                                      child: Text(
+                                        _getTranslatedText(data['farmName'] ?? 'Unknown Farm'),
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                      child: Text(
+                                        locationDescription,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                      child: Text(
+                                        dateTime,
+                                        style: const TextStyle(
+                                          fontSize: 10,
+                                        ),
+                                        textAlign: TextAlign.center,
+                                      ),
+                                    ),
+                                  ),
+                                  Expanded(
+                                    flex: 2,
+                                    child: Center(
+                                      child: Text(
+                                        detection.toUpperCase(),
+                                        style: TextStyle(
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.w500,
+                                          color: detection.toLowerCase().contains('not likely detected')
+                                              ? Colors.green
+                                              : Colors.red,
+                                        ),
+                                        textAlign: TextAlign.center,
                                       ),
                                     ),
                                   ),
@@ -370,63 +315,76 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
   }
 
   Widget _buildTableHeader() {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
+      ),
       child: Row(
         children: [
-          SizedBox(
-            width: 40,
-            child: Text(
-              _getTranslatedText('STATUS'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ),
           Expanded(
-            flex: 2,
-            child: Text(
-              _getTranslatedText('FARM NAME'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+            flex: 1,
+            child: Center(
+              child: Text(
+                _getTranslatedText('STATUS'),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              _getTranslatedText('LOCATION'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+            child: Center(
+              child: Text(
+                _getTranslatedText('FARM NAME'),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              _getTranslatedText('DATE/TIME'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+            child: Center(
+              child: Text(
+                _getTranslatedText('LOCATION'),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
           Expanded(
             flex: 2,
-            child: Text(
-              _getTranslatedText('DETECTION'),
-              style: const TextStyle(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: Colors.grey,
+            child: Center(
+              child: Text(
+                _getTranslatedText('DATE/TIME'),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                _getTranslatedText('DETECTION'),
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
               ),
             ),
           ),
@@ -441,3 +399,4 @@ class _FisherReportsScreenState extends State<FisherReportsScreen> {
     super.dispose();
   }
 }
+

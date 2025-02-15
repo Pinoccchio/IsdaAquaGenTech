@@ -215,6 +215,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
         'imageUrl': widget.reportData['imageUrl'] ?? '',
         'isNew': true,
         'isNewForAdmin': true,
+        'reportedToBFAR': widget.reportData['reportedToBFAR'] ?? false,
       });
 
       // Store the alert as a message
@@ -245,6 +246,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
         'isNew': true,
         'isNewForAdmin': false,
         'isNewMessageFromAdmin': true,
+        'reportedToBFAR': widget.reportData['reportedToBFAR'] ?? false,
       });
 
       // Update the report status
@@ -517,6 +519,7 @@ class _AdminHomescreenFisherDetailedScreenState extends State<AdminHomescreenFis
               _buildTextField('FEED TYPES', widget.reportData['feedTypes'] ?? ''),
               _buildTextField('DATE AND TIME REPORTED', _formatTimestamp(widget.reportData['timestamp'])),
               _buildTextField('LOCATION', _locationDescription),
+              _buildTextField('REPORTED TO BFAR', widget.reportData['reportedToBFAR'] == true ? 'Yes' : 'No'),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

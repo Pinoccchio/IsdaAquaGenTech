@@ -67,6 +67,7 @@ class _AdminHomescreenFisherReportScreenState extends State<AdminHomescreenFishe
               'feedTypes': data['feedTypes'],
               'realtime_location': data['realtime_location'],
               'isNewForAdmin': data['isNewForAdmin'] ?? false,
+              'reportedToBFAR': data['reportedToBFAR'] ?? false,
             };
           }).toList();
           _isLoading = false;
@@ -186,6 +187,14 @@ class _AdminHomescreenFisherReportScreenState extends State<AdminHomescreenFishe
                                   fontSize: 16,
                                   fontWeight: FontWeight.w600,
                                   color: isDiseaseDetected ? Colors.red : Colors.green,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'Reported to BFAR: ${report['reportedToBFAR'] ? 'Yes' : 'No'}',
+                                style: const TextStyle(
+                                  fontSize: 12,
+                                  color: Colors.grey,
                                 ),
                               ),
                             ],

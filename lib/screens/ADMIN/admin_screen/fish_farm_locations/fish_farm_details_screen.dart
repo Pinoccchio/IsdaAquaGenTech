@@ -274,6 +274,7 @@ class _FishFarmDetailsScreenState extends State<FishFarmDetailsScreen> {
               _buildTextField('FEED TYPES', widget.farmData['feedTypes'] ?? ''),
               _buildTextField('DATE AND TIME REPORTED', _formatTimestamp(widget.farmData['timestamp'])),
               _buildTextField('LOCATION', widget.farmData['locationDescription'] ?? ''),
+              _buildTextField('REPORTED TO BFAR', widget.farmData['reportedToBFAR'] == true ? 'Yes' : 'No'),
             ],
           ),
         ),

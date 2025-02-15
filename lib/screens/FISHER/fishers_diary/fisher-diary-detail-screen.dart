@@ -63,6 +63,13 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
       'Data saved successfully': 'Matagumpay na na-save ang data',
       'Error saving data': 'May error sa pag-save ng data',
       'Cannot save data for future weeks': 'Hindi pwedeng i-save ang data para sa mga susunod na linggo',
+      'Confirm Save': 'Kumpirmahin ang Pag-save',
+      'Once submitted, this data cannot be edited. Are you sure you want to save?': 'Kapag nai-submit na, hindi na maaaring i-edit ang datos na ito. Sigurado ka bang gusto mong i-save?',
+      'Cancel': 'Kanselahin',
+      'Save': 'I-save',
+      'Cannot Edit': 'Hindi Maaaring I-edit',
+      'Once submitted, you cannot edit this information anymore.': 'Kapag nai-submit na, hindi mo na maaaring i-edit ang impormasyong ito.',
+      'OK': 'OK',
     },
     'Bisaya': {
       'WEEK': 'SEMANA',
@@ -81,6 +88,13 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
       'Data saved successfully': 'Malampuson nga na-save ang data',
       'Error saving data': 'Naay sayop sa pag-save sa data',
       'Cannot save data for future weeks': 'Dili pwede i-save ang data para sa umaabot nga mga semana',
+      'Confirm Save': 'Kumpirmaha ang Pag-save',
+      'Once submitted, this data cannot be edited. Are you sure you want to save?': 'Kung ma-submit na, dili na mahimong usbon kini nga datos. Sigurado ka ba nga gusto nimong i-save?',
+      'Cancel': 'Kanselahon',
+      'Save': 'I-save',
+      'Cannot Edit': 'Dili Mausab',
+      'Once submitted, you cannot edit this information anymore.': 'Kung ma-submit na, dili na nimo mausab kini nga impormasyon.',
+      'OK': 'OK',
     },
   };
 
@@ -190,6 +204,80 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
       return;
     }
 
+    bool shouldSave = await showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return Dialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(16),
+          ),
+          elevation: 0,
+          backgroundColor: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              shape: BoxShape.rectangle,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black26,
+                  blurRadius: 10.0,
+                  offset: Offset(0.0, 10.0),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: <Widget>[
+                Text(
+                  _getTranslatedText('Confirm Save'),
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                SizedBox(height: 16),
+                Text(
+                  _getTranslatedText('Once submitted, this data cannot be edited. Are you sure you want to save?'),
+                  style: TextStyle(fontSize: 16),
+                  textAlign: TextAlign.center,
+                ),
+                SizedBox(height: 24),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: <Widget>[
+                    TextButton(
+                      onPressed: () => Navigator.of(context).pop(false),
+                      child: Text(
+                        _getTranslatedText('Cancel'),
+                        style: TextStyle(color: _textColor),
+                      ),
+                    ),
+                    ElevatedButton(
+                      onPressed: () => Navigator.of(context).pop(true),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: _primaryColor,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                      ),
+                      child: Text(
+                        _getTranslatedText('Save'),
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    if (!shouldSave) return;
+
     try {
       await FirebaseFirestore.instance
           .collection('farms')
@@ -238,6 +326,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
   }
 
   Widget _buildInputField(String label, TextEditingController controller, {String? suffix}) {
+    bool isEditable = _isWeekEditable(_selectedWeek) && controller.text.isEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -253,7 +342,7 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
         TextFormField(
           controller: controller,
           keyboardType: TextInputType.numberWithOptions(decimal: true),
-          enabled: _isWeekEditable(_selectedWeek),
+          enabled: isEditable,
           decoration: InputDecoration(
             suffixText: suffix,
             contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
@@ -270,12 +359,88 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
               borderSide: BorderSide(color: _borderColor),
             ),
             filled: true,
-            fillColor: _isWeekEditable(_selectedWeek) ? Colors.grey[50] : Colors.grey[200],
+            fillColor: isEditable ? Colors.white : Colors.grey[200],
           ),
+          onTap: () {
+            if (!isEditable) {
+              showDialog(
+                context: context,
+                builder: (BuildContext context) {
+                  return Dialog(
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                    elevation: 0,
+                    backgroundColor: Colors.transparent,
+                    child: Container(
+                      padding: EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        shape: BoxShape.rectangle,
+                        borderRadius: BorderRadius.circular(16),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black26,
+                            blurRadius: 10.0,
+                            offset: Offset(0.0, 10.0),
+                          ),
+                        ],
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: <Widget>[
+                          Text(
+                            _getTranslatedText('Cannot Edit'),
+                            style: TextStyle(
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                          SizedBox(height: 16),
+                          Text(
+                            _getTranslatedText('Once submitted, you cannot edit this information anymore.'),
+                            style: TextStyle(fontSize: 16),
+                            textAlign: TextAlign.center,
+                          ),
+                          SizedBox(height: 24),
+                          ElevatedButton(
+                            onPressed: () => Navigator.of(context).pop(),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: _primaryColor,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: Text(
+                              _getTranslatedText('OK'),
+                              style: TextStyle(color: Colors.white),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              );
+            }
+          },
         ),
         const SizedBox(height: 16),
       ],
     );
+  }
+
+  bool _hasEditableFields() {
+    return _bodyWeightController.text.isEmpty ||
+        _bodyLengthController.text.isEmpty ||
+        _survivalController.text.isEmpty ||
+        _waterTempController.text.isEmpty ||
+        _phLevelController.text.isEmpty ||
+        _salinityController.text.isEmpty ||
+        _dissolvedOxygenController.text.isEmpty ||
+        _turbidityController.text.isEmpty ||
+        _nitriteController.text.isEmpty ||
+        _ammoniaController.text.isEmpty;
   }
 
   Future<bool> _onWillPop() async {
@@ -371,10 +536,11 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
                 const SizedBox(height: 24),
                 SizedBox(
                   width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: _isWeekEditable(_selectedWeek) ? _saveWeekData : null,
+                  child: _isWeekEditable(_selectedWeek) && _hasEditableFields()
+                      ? ElevatedButton(
+                    onPressed: _saveWeekData,
                     style: ElevatedButton.styleFrom(
-                      backgroundColor: _isWeekEditable(_selectedWeek) ? _primaryColor : Colors.grey,
+                      backgroundColor: _primaryColor,
                       padding: const EdgeInsets.symmetric(vertical: 16),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
@@ -388,7 +554,8 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
                         color: Colors.white,
                       ),
                     ),
-                  ),
+                  )
+                      : SizedBox.shrink(),
                 ),
               ],
             ),
@@ -398,3 +565,4 @@ class _FisherDiaryDetailScreenState extends State<FisherDiaryDetailScreen> {
     );
   }
 }
+

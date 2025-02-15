@@ -5,10 +5,9 @@ import 'package:geolocator/geolocator.dart';
 import 'dart:async';
 import 'dart:io';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:url_launcher/url_launcher.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import '../../fisher_reports_screen/fisher_reports_screen.dart';
-import '../../fishers_diary/fishers_diary_screen.dart';
+// import '../../fishers_diary/fishers_diary_screen.dart';
 import '../../tilapia_lake_virus_information_screen/tilapia_lake_virus_information_screen.dart';
 import '../../whitespot_syndrome_virus_information_screen/whitespot_syndrome_virus_information_screen.dart';
 import '../fish_farm_details/fish_farm_details.dart';
@@ -33,7 +32,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
   Timer? _locationTimer;
   StreamSubscription<Position>? _positionStream;
   bool _hasNewReports = false;
-  bool _hasNewAlerts = false;
+  //bool _hasNewAlerts = false; //Removed as per update 1
   String _selectedLanguage = 'English';
   FlutterLocalNotificationsPlugin flutterLocalNotificationsPlugin = FlutterLocalNotificationsPlugin();
 
@@ -63,60 +62,60 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     await flutterLocalNotificationsPlugin.initialize(initializationSettings);
   }
 
-  Future<void> _checkAndScheduleNotifications(List<QueryDocumentSnapshot> diaryEntries) async {
-    for (var entry in diaryEntries) {
-      final startDate = (entry.data() as Map<String, dynamic>)['startDate'] as Timestamp;
-      final harvestDate = (entry.data() as Map<String, dynamic>)['harvestDate'] as Timestamp;
-      final now = DateTime.now();
+  // Future<void> _checkAndScheduleNotifications(List<QueryDocumentSnapshot> diaryEntries) async { //Commented out as per update 1
+  //   for (var entry in diaryEntries) {
+  //     final startDate = (entry.data() as Map<String, dynamic>)['startDate'] as Timestamp;
+  //     final harvestDate = (entry.data() as Map<String, dynamic>)['harvestDate'] as Timestamp;
+  //     final now = DateTime.now();
+  //
+  //     if (now.isBefore(harvestDate.toDate())) {
+  //       int currentWeek = ((now.difference(startDate.toDate()).inDays) / 7).ceil();
+  //
+  //       // Ensure we start from week 1
+  //       if (currentWeek < 1) currentWeek = 1;
+  //
+  //       // Check if the current week's data is filled
+  //       final weekData = await FirebaseFirestore.instance
+  //           .collection('farms')
+  //           .doc(widget.farmId)
+  //           .collection('diary')
+  //           .doc(entry.id)
+  //           .collection('weekly_data')
+  //           .doc('week_$currentWeek')
+  //           .get();
+  //
+  //       if (!weekData.exists) {
+  //         // Schedule a notification for unfilled week
+  //         await _scheduleNotification(
+  //           'Weekly Update Reminder',
+  //           'Please fill in the data for Week $currentWeek of your diary entry.',
+  //           entry.id,
+  //           currentWeek,
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
 
-      if (now.isBefore(harvestDate.toDate())) {
-        int currentWeek = ((now.difference(startDate.toDate()).inDays) / 7).ceil();
-
-        // Ensure we start from week 1
-        if (currentWeek < 1) currentWeek = 1;
-
-        // Check if the current week's data is filled
-        final weekData = await FirebaseFirestore.instance
-            .collection('farms')
-            .doc(widget.farmId)
-            .collection('diary')
-            .doc(entry.id)
-            .collection('weekly_data')
-            .doc('week_$currentWeek')
-            .get();
-
-        if (!weekData.exists) {
-          // Schedule a notification for unfilled week
-          await _scheduleNotification(
-            'Weekly Update Reminder',
-            'Please fill in the data for Week $currentWeek of your diary entry.',
-            entry.id,
-            currentWeek,
-          );
-        }
-      }
-    }
-  }
-
-  Future<void> _scheduleNotification(String title, String body, String entryId, int week) async {
-    var androidPlatformChannelSpecifics = AndroidNotificationDetails(
-      'diary_reminders',
-      'Diary Reminders',
-      importance: Importance.max,
-      priority: Priority.high,
-    );
-    var platformChannelSpecifics = NotificationDetails(
-      android: androidPlatformChannelSpecifics,
-    );
-
-    await flutterLocalNotificationsPlugin.show(
-      0,
-      title,
-      body,
-      platformChannelSpecifics,
-      payload: 'diary_$entryId\_week_$week',
-    );
-  }
+  // Future<void> _scheduleNotification(String title, String body, String entryId, int week) async { //Commented out as per update 1
+  //   var androidPlatformChannelSpecifics = AndroidNotificationDetails(
+  //     'diary_reminders',
+  //     'Diary Reminders',
+  //     importance: Importance.max,
+  //     priority: Priority.high,
+  //   );
+  //   var platformChannelSpecifics = NotificationDetails(
+  //     android: androidPlatformChannelSpecifics,
+  //   );
+  //
+  //   await flutterLocalNotificationsPlugin.show(
+  //     0,
+  //     title,
+  //     body,
+  //     platformChannelSpecifics,
+  //     payload: 'diary_$entryId\_week_$week',
+  //   );
+  // }
 
   Future<void> _initializeLocationTracking() async {
     LocationPermission permission = await Geolocator.checkPermission();
@@ -186,19 +185,11 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         .where('isNew', isEqualTo: true)
         .snapshots()
         .listen((reportSnapshot) {
-      FirebaseFirestore.instance
-          .collection('alerts')
-          .where('farmId', isEqualTo: widget.farmId)
-          .where('isNew', isEqualTo: true)
-          .snapshots()
-          .listen((alertSnapshot) {
-        if (mounted) {
-          setState(() {
-            _hasNewReports = reportSnapshot.docs.isNotEmpty;
-            _hasNewAlerts = alertSnapshot.docs.isNotEmpty;
-          });
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _hasNewReports = reportSnapshot.docs.isNotEmpty;
+        });
+      }
     });
   }
 
@@ -287,8 +278,8 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         'WHITE SPOT SYNDROME\nVIRUS INFORMATION': 'IMPORMASYON SA WHITE SPOT\nSYNDROME VIRUS',
         'LANGUAGE': 'WIKA',
         'LOG OUT': 'MAG-LOG OUT',
-        'FARMER\'S DIARY': 'TALAARAWAN NG MAGSASAKA',
-        'FARMER\'S LIBRARY': 'AKLATAN NG MAGSASAKA',
+        'FISHERMAN\'S DIARY': 'TALAARAWAN NG MANGINGISDA',
+        'FISHERMAN\'S LIBRARY': 'AKLATAN NG MANGINGISDA',
       },
       'Bisaya': {
         'REPORTS': 'MGA TAHO',
@@ -297,8 +288,8 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
         'WHITE SPOT SYNDROME\nVIRUS INFORMATION': 'IMPORMASYON SA WHITE SPOT\nSYNDROME VIRUS',
         'LANGUAGE': 'PINULONGAN',
         'LOG OUT': 'PAG-LOG OUT',
-        'FARMER\'S DIARY': 'DIARYOHAN SA MAG-UUMA',
-        'FARMER\'S LIBRARY': 'LIBRARYA SA MAG-UUMA',
+        'FISHERMAN\'S DIARY': 'DIARYOHAN SA MANGINGISDA',
+        'FISHERMAN\'S LIBRARY': 'LIBRARYA SA MANGINGISDA',
       },
     };
 
@@ -308,37 +299,37 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     return translations[_selectedLanguage]?[key] ?? key;
   }
 
-  Future<void> _launchFarmersLibrary() async {
-    final Uri url = Uri.parse('https://drive.google.com/drive/folders/1pN6Zao0ECBdZRg7sqPzpPprqpK-UsJk3?usp=drive_link');
-    try {
-      if (!await launchUrl(
-        url,
-        mode: LaunchMode.externalApplication,
-      )) {
-        throw Exception('Could not launch $url');
-      }
-    } catch (e) {
-      if (context.mounted) {
-        showDialog(
-          context: context,
-          builder: (BuildContext context) {
-            return AlertDialog(
-              title: const Text('Error'),
-              content: const Text('Could not open the Farmer\'s Library. Please check your internet connection and try again.'),
-              actions: <Widget>[
-                TextButton(
-                  child: const Text('OK'),
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
-                ),
-              ],
-            );
-          },
-        );
-      }
-    }
-  }
+  // Future<void> _launchFishermansLibrary() async { //Commented out as per update 1
+  //   final Uri url = Uri.parse('https://drive.google.com/drive/folders/1pN6Zao0ECBdZRg7sqPzpPprqpK-UsJk3?usp=drive_link');
+  //   try {
+  //     if (!await launchUrl(
+  //       url,
+  //       mode: LaunchMode.externalApplication,
+  //     )) {
+  //       throw Exception('Could not launch $url');
+  //     }
+  //   } catch (e) {
+  //     if (context.mounted) {
+  //       showDialog(
+  //         context: context,
+  //         builder: (BuildContext context) {
+  //           return AlertDialog(
+  //             title: const Text('Error'),
+  //             content: const Text('Could not open the Fisherman\'s Library. Please check your internet connection and try again.'),
+  //             actions: <Widget>[
+  //               TextButton(
+  //                 child: const Text('OK'),
+  //                 onPressed: () {
+  //                   Navigator.of(context).pop();
+  //                 },
+  //               ),
+  //             ],
+  //           );
+  //         },
+  //       );
+  //     }
+  //   }
+  // }
 
   @override
   Widget build(BuildContext context) {
@@ -470,19 +461,19 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                         ),
                       );
                     }),
-                    _buildMenuItem(_getTranslatedText('FARMER\'S DIARY'), onTap: () {
-                      Navigator.pop(context);
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => FishersDiaryScreen(farmId: widget.farmId),
-                        ),
-                      );
-                    }),
-                    _buildMenuItem(_getTranslatedText('FARMER\'S LIBRARY'), onTap: () {
-                      Navigator.pop(context);
-                      _launchFarmersLibrary();
-                    }),
+                    // _buildMenuItem(_getTranslatedText('FISHERMAN\'S DIARY'), onTap: () { //Commented out as per update 1
+                    //   Navigator.pop(context);
+                    //   Navigator.push(
+                    //     context,
+                    //     MaterialPageRoute(
+                    //       builder: (context) => FishersDiaryScreen(farmId: widget.farmId),
+                    //     ),
+                    //   );
+                    // }),
+                    // _buildMenuItem(_getTranslatedText('FISHERMAN\'S LIBRARY'), onTap: () { //Commented out as per update 1
+                    //   Navigator.pop(context);
+                    //   _launchFishermansLibrary();
+                    // }),
                     _buildMenuItem(_getTranslatedText('LANGUAGE'), onTap: _showLanguageSelectionDialog),
                   ],
                 ),
@@ -506,22 +497,10 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
             ],
           ),
         ),
-        body: StreamBuilder<QuerySnapshot>(
-          stream: FirebaseFirestore.instance
-              .collection('farms')
-              .doc(widget.farmId)
-              .collection('diary')
-              .snapshots(),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              _checkAndScheduleNotifications(snapshot.data!.docs);
-            }
-            return FisherHomeScreen(
-              openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
-              farmId: widget.farmId,
-              selectedLanguage: _selectedLanguage,
-            );
-          },
+        body: FisherHomeScreen(
+          openDrawer: () => _scaffoldKey.currentState?.openDrawer(),
+          farmId: widget.farmId,
+          selectedLanguage: _selectedLanguage,
         ),
       ),
     );
@@ -555,7 +534,7 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
                   textAlign: TextAlign.center,
                 ),
               ),
-              if (badge || (title == 'REPORTS' && (_hasNewReports || _hasNewAlerts)))
+              if (badge || (title == 'REPORTS' && _hasNewReports)) //Update 3
                 Container(
                   width: 8,
                   height: 8,
@@ -575,3 +554,4 @@ class _FisherContainerScreenState extends State<FisherContainerScreen> {
     );
   }
 }
+

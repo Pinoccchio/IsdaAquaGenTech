@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 class AdminMessageDetailScreen extends StatelessWidget {
   final String messageId;
@@ -184,6 +185,13 @@ class AdminMessageDetailScreen extends StatelessWidget {
                             color: Colors.grey[800],
                           ),
                         ),
+                        Text(
+                          'Reported to BFAR: ${data['reportedToBFAR'] == true ? 'Yes' : 'No'}',
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[800],
+                          ),
+                        ),
                         const SizedBox(height: 16),
                         Text(
                           'Location:',
@@ -276,14 +284,18 @@ class AdminMessageDetailScreen extends StatelessWidget {
     if (imageUrl != null && imageUrl.isNotEmpty) {
       return ClipRRect(
         borderRadius: BorderRadius.circular(8),
-        child: Image.network(
-          imageUrl,
+        child: CachedNetworkImage(
+          imageUrl: imageUrl,
           width: double.infinity,
           height: 200,
           fit: BoxFit.cover,
-          errorBuilder: (context, error, stackTrace) {
-            return _buildPlaceholderImage();
-          },
+          placeholder: (context, url) => Container(
+            color: Colors.grey[200],
+            child: const Center(
+              child: CircularProgressIndicator(),
+            ),
+          ),
+          errorWidget: (context, url, error) => _buildPlaceholderImage(),
         ),
       );
     } else {

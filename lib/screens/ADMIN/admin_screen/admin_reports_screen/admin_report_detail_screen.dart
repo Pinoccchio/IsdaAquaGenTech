@@ -191,6 +191,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
       }
 
       final detection = reportData['detection'] as String? ?? 'Unknown';
+      final reportedToBFAR = reportData['reportedToBFAR'] as bool? ?? false;
 
       // Store the message
       await FirebaseFirestore.instance
@@ -220,6 +221,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
         'isNew': true,
         'isNewForAdmin': false,
         'isNewMessageFromAdmin': true,
+        'reportedToBFAR': reportedToBFAR,
       });
 
       if (!context.mounted) return;
@@ -338,6 +340,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
           final organismName = _extractOrganismName(detection);
           final imageUrl = data['imageUrl'] as String?;
           final timestamp = data['timestamp'] as Timestamp;
+          final reportedToBFAR = data['reportedToBFAR'] as bool? ?? false;
 
           return SingleChildScrollView(
             child: Padding(
@@ -473,6 +476,7 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
                   _buildTextField('FEED TYPES', data['feedTypes'] ?? ''),
                   _buildTextField('DATE AND TIME REPORTED', _formatTimestamp(timestamp)),
                   _buildTextField('LOCATION', _locationDescription),
+                  _buildTextField('REPORTED TO BFAR', reportedToBFAR ? 'Yes' : 'No'),
                   const SizedBox(height: 16),
                   SizedBox(
                     width: double.infinity,
@@ -505,3 +509,4 @@ class _AdminReportDetailScreenState extends State<AdminReportDetailScreen> {
   }
 }
 
+// TO DO, DIDTOA SA REPORT BAI SA HOMEPAGE,

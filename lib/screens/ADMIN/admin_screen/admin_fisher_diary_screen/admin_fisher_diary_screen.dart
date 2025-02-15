@@ -146,7 +146,7 @@ class _AdminFishersDiaryScreenState extends State<AdminFishersDiaryScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text(
-          'Fisher\'s Diaries',
+          'Fisherman\'s Diaries',
           style: TextStyle(color: Colors.white),
         ),
         backgroundColor: const Color(0xFF40C4FF),

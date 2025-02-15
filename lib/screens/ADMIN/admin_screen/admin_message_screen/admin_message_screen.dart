@@ -84,6 +84,7 @@ class AdminMessageScreen extends StatelessWidget {
             : '';
         bool isNewMessage = messageData?['isNewForAdmin'] ?? false;
         bool isNewMessageFromAdmin = messageData?['isNewMessageFromAdmin'] ?? false;
+        bool reportedToBFAR = messageData?['reportedToBFAR'] ?? false;
 
         if (farmName == 'Unknown Farm') {
           return const SizedBox.shrink(); // Don't display anything for unknown farms
@@ -117,6 +118,10 @@ class AdminMessageScreen extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 lastMessageTime,
+                style: TextStyle(color: Colors.grey[500], fontSize: 12),
+              ),
+              Text(
+                'Reported to BFAR: ${reportedToBFAR ? 'Yes' : 'No'}',
                 style: TextStyle(color: Colors.grey[500], fontSize: 12),
               ),
             ],

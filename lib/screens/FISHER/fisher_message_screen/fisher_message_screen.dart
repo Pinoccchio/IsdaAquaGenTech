@@ -68,6 +68,7 @@ class FisherMessageScreen extends StatelessWidget {
     final dateTime = timestamp.toDate();
     final formattedTime = DateFormat('h:mm a').format(dateTime);
     final formattedDate = DateFormat('MMM d, yyyy').format(dateTime);
+    final reportedToBFAR = data['reportedToBFAR'] as bool? ?? false;
 
     final detection = data['detection'] as String? ?? '';
     final isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
@@ -128,12 +129,20 @@ class FisherMessageScreen extends StatelessWidget {
                   color: Colors.black,
                   fontSize: 16,
                 ),
-                maxLines: 3,
+                maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
               const SizedBox(height: 4),
               Text(
                 '$formattedDate at $formattedTime',
+                style: const TextStyle(
+                  color: Colors.black54,
+                  fontSize: 12,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                'Reported to BFAR: ${reportedToBFAR ? 'Yes' : 'No'}',
                 style: const TextStyle(
                   color: Colors.black54,
                   fontSize: 12,
@@ -185,7 +194,7 @@ class FisherMessageScreen extends StatelessWidget {
       return data['replyMessage'] as String? ?? 'No message content';
     } else {
       final content = data['content'] as String? ?? 'No message content';
-      return content;
+      return content.startsWith('Alert:') ? content.replaceFirst('Alert:', 'Report:') : content;
     }
   }
 }

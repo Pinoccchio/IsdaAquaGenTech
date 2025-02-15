@@ -59,9 +59,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       'NO': 'HINDI',
       'Report sent to BFAR successfully': 'Matagumpay na naipadala ang report sa BFAR',
       'Failed to send report to BFAR': 'Hindi nagawa ang pagpapadala ng report sa BFAR',
-      'REPORT TO BFAR': 'ULAT SA BFAR',
+      'REPORT TO BFAR': 'INIULAT SA BFAR',
       'SEND REPORT': 'MAGPADALA NG ULAT',
       'AT': 'SA',
+      'Yes': 'Oo',
+      'No': 'Hindi',
+      'A new report alert for': 'Isang bagong alerto ng ulat para sa',
     },
     'Bisaya': {
       'REPORT': 'REPORT',
@@ -94,9 +97,12 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       'NO': 'DILI',
       'Report sent to BFAR successfully': 'Malampuson nga napadala ang report sa BFAR',
       'Failed to send report to BFAR': 'Napakyas sa pagpadala sa report sa BFAR',
-      'REPORT TO BFAR': 'REPORT TO BFAR',
+      'REPORT TO BFAR': 'GIBALITA SA BFAR',
       'SEND REPORT': 'IPADALA ANG REPORT',
       'AT': 'SA',
+      'Yes': 'Oo',
+      'No': 'Dili',
+      'A new report alert for': 'Usa ka bag-ong alerto sa report alang sa',
     },
   };
 
@@ -253,7 +259,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
       // Show notification
       await _showNotification(
           _getTranslatedText('New Alert Message'),
-          '${_getTranslatedText('A new alert has been created for')} $detection at ${data['farmName'] ?? 'Unknown Farm'}. ${isDiseaseDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
+          '${_getTranslatedText('A new report alert for')} $detection at ${data['farmName'] ?? 'Unknown Farm'}. ${isDiseaseDetected ? _getTranslatedText('Immediate action may be required.') : _getTranslatedText('No immediate action is required.')}'
       );
 
       // Show success message
@@ -788,6 +794,7 @@ class _ReportDetailScreenState extends State<ReportDetailScreen> {
               _buildTextField('FEED TYPES', data['feedTypes'] ?? ''),
               _buildTextField('DATE AND TIME REPORTED', _timestamp),
               _buildTextField('LOCATION', _locationDescription),
+              _buildTextField('REPORTED TO BFAR', data['reportedToBFAR'] == true ? _getTranslatedText('Yes') : _getTranslatedText('No')),
               const SizedBox(height: 16),
               SizedBox(
                 width: double.infinity,

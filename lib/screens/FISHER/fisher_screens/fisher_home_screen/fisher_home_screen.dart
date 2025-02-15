@@ -36,7 +36,7 @@ class FisherHomeScreen extends StatefulWidget {
 
 class _FisherHomeScreenState extends State<FisherHomeScreen> {
   final String apiKey = 'de027726bde1251b15e2fb337b826f13';
-  final FlutterNewsService newsService = FlutterNewsService('fe959ea9b7524994a32837395d1ddc43');
+  final FlutterNewsService newsService = FlutterNewsService('fe959ea9b7524994a32837395d1ddc431');
   Map<String, dynamic>? weatherData;
   List<Map<String, dynamic>>? forecast;
   Position? currentPosition;
@@ -53,12 +53,10 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   bool _hasMoreNews = true;
   bool _hasNewReports = false;
   bool _hasNewMessages = false;
-  bool _hasNewAlerts = false;
+  bool _hasNewEditRequests = false;
   List<Map<String, dynamic>> _announcements = [];
   bool _isLoadingAnnouncements = false;
-  int _currentAnnouncementIndex = 0; // Added variable
-  bool _hasNewEditRequests = false;
-
+  int _currentAnnouncementIndex = 0;
 
   @override
   void initState() {
@@ -68,7 +66,7 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     _startClock();
     _startWeatherRefresh();
     _fetchNews();
-    _listenForNewReportsAndAlerts();
+    _listenForNewReports();
     _listenForNewMessages();
     _listenForNewEditRequests();
     _fetchAnnouncements();
@@ -121,26 +119,18 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     );
   }
 
-  void _listenForNewReportsAndAlerts() {
+  void _listenForNewReports() {
     FirebaseFirestore.instance
         .collection('reports')
         .where('farmId', isEqualTo: widget.farmId)
         .where('isNew', isEqualTo: true)
         .snapshots()
         .listen((reportSnapshot) {
-      FirebaseFirestore.instance
-          .collection('alerts')
-          .where('farmId', isEqualTo: widget.farmId)
-          .where('isNew', isEqualTo: true)
-          .snapshots()
-          .listen((alertSnapshot) {
-        if (mounted) {
-          setState(() {
-            _hasNewReports = reportSnapshot.docs.isNotEmpty;
-            _hasNewAlerts = alertSnapshot.docs.isNotEmpty;
-          });
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _hasNewReports = reportSnapshot.docs.isNotEmpty;
+        });
+      }
     });
   }
 
@@ -812,7 +802,7 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
                                           );
                                         }
                                       }
-                                                                        },
+                                    },
                                     style: ElevatedButton.styleFrom(
                                       backgroundColor: const Color(0xFF40C4FF),
                                       foregroundColor: Colors.white,
@@ -1161,7 +1151,6 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
     'Description': 'Paghulagway',
   };
 
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -1175,7 +1164,7 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
                 children: [
                   badges.Badge(
                     position: badges.BadgePosition.topEnd(top: -8, end: -8),
-                    showBadge: _hasNewReports || _hasNewAlerts,
+                    showBadge: _hasNewReports,
                     badgeContent: Container(
                       width: 8,
                       height: 8,
@@ -1287,7 +1276,6 @@ class _FisherHomeScreenState extends State<FisherHomeScreen> {
   }
 }
 
-// Move AnnouncementCard outside of HomePage class
 class AnnouncementCard extends StatelessWidget {
   final Map<String, dynamic> announcement;
   final VoidCallback onTap;
@@ -1369,3 +1357,4 @@ class AnnouncementCard extends StatelessWidget {
     );
   }
 }
+

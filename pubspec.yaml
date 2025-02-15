@@ -28,7 +28,7 @@ dependencies:
   fluttertoast: ^8.2.8
   google_maps_flutter: ^2.6.1
   philippines_rpcmb: ^0.0.3
-  cached_network_image: ^3.4.0
+  cached_network_image: ^3.2.0
   flutter_svg: ^2.0.10+1
   firebase_storage: ^12.2.0
   shared_preferences: ^2.2.3

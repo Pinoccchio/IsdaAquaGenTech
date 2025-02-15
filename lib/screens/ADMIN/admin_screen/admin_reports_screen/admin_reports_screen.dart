@@ -7,8 +7,6 @@ import 'dart:io';
 import 'admin_report_detail_screen.dart';
 import 'package:share_plus/share_plus.dart';
 import 'package:geocoding/geocoding.dart';
-import 'package:path/path.dart' as path;
-import 'package:share_plus/share_plus.dart';
 
 
 class AdminReportsScreen extends StatefulWidget {
@@ -78,7 +76,7 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
       final tilapiaNotLikelySheet = excelFile['Tilapia Disease Not Likely Detected'];
 
       // Add headers to all sheets
-      final headers = ['Farm Name', 'Date', 'Detection', 'Location', 'Image URL', 'Owner Name', 'Contact Number', 'Feed Types'];
+      final headers = ['Farm Name', 'Date', 'Detection', 'Location', 'Image URL', 'Owner Name', 'Contact Number', 'Feed Types', 'Reported to BFAR'];
       for (var sheet in [shrimpLikelySheet, shrimpNotLikelySheet, tilapiaLikelySheet, tilapiaNotLikelySheet]) {
         sheet.appendRow(headers.map((e) => excel.TextCellValue(e)).toList());
       }
@@ -101,7 +99,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           data['imageUrl'] ?? 'No image',
           '${data['ownerFirstName'] ?? ''} ${data['ownerLastName'] ?? ''}',
           data['contactNumber'] ?? 'Unknown',
-          data['feedTypes'] ?? 'Unknown'
+          data['feedTypes'] ?? 'Unknown',
+          data['reportedToBFAR'] == true ? 'Yes' : 'No'
         ].map((e) => excel.TextCellValue(e.toString())).toList();
 
         if (isShrimp) {
@@ -144,101 +143,78 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
     }
   }
 
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        backgroundColor: Colors.white,
-        elevation: 0,
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.black),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Image.asset(
-          'lib/assets/images/primary-logo.png',
-          height: 32,
-        ),
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(_isDownloading ? Icons.hourglass_empty : Icons.share, color: Colors.black),
-            onPressed: _isDownloading ? null : _downloadAndShareReports,
-          ),
-        ],
+  Widget _buildTableHeader() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 4),
+      decoration: BoxDecoration(
+        color: Colors.grey[200],
+        borderRadius: BorderRadius.circular(8),
       ),
-      body: Column(
-        children: [
-          const Padding(
-            padding: EdgeInsets.symmetric(vertical: 20),
-            child: Text(
-              'ALL REPORTS',
-              style: TextStyle(
-                fontSize: 24,
-                fontWeight: FontWeight.bold,
-                letterSpacing: 1.5,
-              ),
-            ),
-          ),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: _getReportsStream(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting) {
-                  return const Center(child: CircularProgressIndicator());
-                }
-
-                if (snapshot.hasError) {
-                  return Center(child: Text('Error: ${snapshot.error}'));
-                }
-
-                if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-                  return const Center(child: Text('No reports found.', style: TextStyle(fontSize: 16)));
-                }
-
-                final reports = snapshot.data!.docs;
-
-                return ListView(
-                  children: [
-                    _buildHeaderRow(),
-                    ...reports.map((report) => _buildReportRow(context, report)),
-                  ],
-                );
-              },
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildHeaderRow() {
-    return const Padding(
-      padding: EdgeInsets.symmetric(horizontal: 16, vertical: 8),
       child: Row(
         children: [
           Expanded(
             flex: 1,
             child: Center(
-              child: Text('STATUS', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-            ),
-          ),
-          Expanded(
-            flex: 3,
-            child: Center(
-              child: Text('FARM', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
-            ),
-          ),
-          Expanded(
-            flex: 2,
-            child: Center(
-              child: Text('DATE', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+              child: Text(
+                'STATUS',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           ),
           Expanded(
             flex: 2,
             child: Center(
-              child: Text('DETECTION', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey)),
+              child: Text(
+                'FARM NAME',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                'LOCATION',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                'DATE/TIME',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
+            ),
+          ),
+          Expanded(
+            flex: 2,
+            child: Center(
+              child: Text(
+                'DETECTION',
+                style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black87,
+                ),
+              ),
             ),
           ),
         ],
@@ -263,60 +239,156 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         );
       },
       child: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 4),
         decoration: BoxDecoration(
           border: Border.all(color: const Color(0xFF40C4FF)),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(12),
           color: isNewForAdmin ? Colors.blue[50] : null,
         ),
-        child: Padding(
-          padding: const EdgeInsets.all(8),
-          child: Row(
-            children: [
-              Expanded(
-                flex: 1,
-                child: Center(child: _buildStatusIndicator(detection)),
+        child: Row(
+          children: [
+            Expanded(
+              flex: 1,
+              child: Center(
+                child: _buildStatusIndicator(detection),
               ),
-              Expanded(
-                flex: 3,
-                child: Center(
-                  child: Text(
-                    data['farmName'] ?? 'Unknown Farm',
-                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500),
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  data['farmName'] ?? 'Unknown Farm',
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: Text(
-                    dateTime,
-                    style: const TextStyle(fontSize: 12),
-                    textAlign: TextAlign.center,
-                  ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: FutureBuilder<String>(
+                  future: _getLocationDescription(data),
+                  builder: (context, snapshot) {
+                    return Text(
+                      snapshot.data ?? 'Fetching location...',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      textAlign: TextAlign.center,
+                      overflow: TextOverflow.ellipsis,
+                    );
+                  },
                 ),
               ),
-              Expanded(
-                flex: 2,
-                child: Center(
-                  child: Text(
-                    detection.toUpperCase(),
-                    style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: detection.toLowerCase().contains('not likely detected') ? Colors.green : Colors.red,
-                    ),
-                    overflow: TextOverflow.ellipsis,
-                    textAlign: TextAlign.center,
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  dateTime,
+                  style: const TextStyle(
+                    fontSize: 10,
                   ),
+                  textAlign: TextAlign.center,
                 ),
               ),
-            ],
+            ),
+            Expanded(
+              flex: 2,
+              child: Center(
+                child: Text(
+                  detection.toUpperCase(),
+                  style: TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.w500,
+                    color: detection.toLowerCase().contains('not likely detected')
+                        ? Colors.green
+                        : Colors.red,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: Colors.white,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back, color: Colors.black),
+          onPressed: () => Navigator.pop(context),
+        ),
+        title: Image.asset(
+          'lib/assets/images/primary-logo.png',
+          height: 32,
+        ),
+        centerTitle: true,
+        actions: [
+          IconButton(
+            icon: Icon(_isDownloading ? Icons.hourglass_empty : Icons.share, color: Colors.black),
+            onPressed: _isDownloading ? null : _downloadAndShareReports,
           ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16),
+        child: Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.symmetric(vertical: 20),
+              child: Text(
+                'ALL REPORTS',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5,
+                ),
+              ),
+            ),
+            _buildTableHeader(),
+            const SizedBox(height: 16),
+            Expanded(
+              child: StreamBuilder<QuerySnapshot>(
+                stream: _getReportsStream(),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+
+                  if (snapshot.hasError) {
+                    return Center(child: Text('Error: ${snapshot.error}'));
+                  }
+
+                  if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+                    return const Center(child: Text('No reports found.', style: TextStyle(fontSize: 16)));
+                  }
+
+                  final reports = snapshot.data!.docs;
+
+                  return ListView.builder(
+                    itemCount: reports.length,
+                    itemBuilder: (context, index) => _buildReportRow(context, reports[index]),
+                  );
+                },
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
 }
+

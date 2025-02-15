@@ -71,6 +71,7 @@ class FarmMessageScreen extends StatelessWidget {
 
     final detection = data['detection'] as String? ?? '';
     final isDiseaseDetected = !detection.toLowerCase().contains('not likely detected');
+    final reportedToBFAR = data['reportedToBFAR'] ?? false;
 
     Color bubbleColor;
     if (isAdmin) {
@@ -132,7 +133,7 @@ class FarmMessageScreen extends StatelessWidget {
                   if (detection.isNotEmpty)
                     const SizedBox(height: 4),
                   Text(
-                    isAdmin ? data['replyMessage'] ?? '' : data['content'] ?? '',
+                    isAdmin ? data['replyMessage'] ?? '' : (data['content'] ?? '').replaceFirst('Alert:', 'Report:'),
                     style: TextStyle(
                       color: isAdmin ? Colors.black : Colors.black,
                       fontSize: 16,
@@ -141,6 +142,13 @@ class FarmMessageScreen extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     formattedTime,
+                    style: const TextStyle(
+                      color: Colors.black54,
+                      fontSize: 12,
+                    ),
+                  ),
+                  Text(
+                    'Reported to BFAR: ${reportedToBFAR ? 'Yes' : 'No'}',
                     style: const TextStyle(
                       color: Colors.black54,
                       fontSize: 12,

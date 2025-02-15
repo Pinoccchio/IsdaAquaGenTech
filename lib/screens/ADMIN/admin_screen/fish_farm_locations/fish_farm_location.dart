@@ -169,6 +169,7 @@ class _FishFarmLocationScreenState extends State<FishFarmLocationScreen> {
             'feedTypes': data['feedTypes'],
             'location': data['location'],
             'isNewForAdmin': data['isNewForAdmin'] ?? false,
+            'reportedToBFAR': data['reportedToBFAR'] ?? false,  // Add this line
           };
         }).toList();
       });
