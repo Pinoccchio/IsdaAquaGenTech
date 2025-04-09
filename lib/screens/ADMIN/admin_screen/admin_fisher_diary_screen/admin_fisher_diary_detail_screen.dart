@@ -206,7 +206,7 @@ class _AdminFishersDiaryDetailScreenState extends State<AdminFishersDiaryDetailS
                       Expanded(
                         child: Text(
                           'Cage ${diaryData['cageNumber']} - ${diaryData['organism']}',
-                          style: Theme.of(context).textTheme.headline6,
+                          style: Theme.of(context).textTheme.titleLarge, // Changed from headline6
                         ),
                       ),
                       if (isHarvested)
@@ -230,11 +230,11 @@ class _AdminFishersDiaryDetailScreenState extends State<AdminFishersDiaryDetailS
                   const SizedBox(height: 8),
                   Text(
                     'Start Date: ${DateFormat('MM/dd/yyyy').format(startDate)}',
-                    style: Theme.of(context).textTheme.subtitle1,
+                    style: Theme.of(context).textTheme.titleMedium, // Changed from subtitle1
                   ),
                   Text(
                     'Harvest Date: ${DateFormat('MM/dd/yyyy').format(harvestDate)}',
-                    style: Theme.of(context).textTheme.subtitle1,
+                    style: Theme.of(context).textTheme.titleMedium, // Changed from subtitle1
                   ),
                   const SizedBox(height: 16),
                   const Text(
@@ -320,4 +320,3 @@ class _AdminFishersDiaryDetailScreenState extends State<AdminFishersDiaryDetailS
     );
   }
 }
-
